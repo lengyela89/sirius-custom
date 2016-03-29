@@ -143,7 +143,9 @@ public class DiagramDialectServices extends AbstractRepresentationDialectService
             }
             result = result && checkPrecondition(semantic, diagDesc.getPreconditionExpression());
         }
-        return result;
+        // TODO : lengyela89 - IQLabs
+        //return result;
+        return true;
     }
 
     /**

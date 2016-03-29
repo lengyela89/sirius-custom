@@ -463,6 +463,10 @@ public class DiagramElementMappingQuery {
 
     private EObject getRootContent(DSemanticDiagram diagram, IInterpreter interpreter, DragAndDropTarget containerView) {
         EObject rootContent = ((DSemanticDecorator) containerView).getTarget();
+        // TODO: lengyela - IQLabs
+        /*
+         * ORIGINAL VERSION
+         */
         /*
          * FIXME : we should do that but the old behavior was buggy :S final
          * String rootContentExpression =
@@ -499,6 +503,32 @@ public class DiagramElementMappingQuery {
                 }
             }
         }
+        
+        /*
+         * Modified version
+         */
+        if (containerView == diagram) {
+            final String rootContentExpression = ((DDiagram) containerView).getDescription().getRootExpression();
+            if (!StringUtil.isEmpty(rootContentExpression)) {
+                interpreter.setVariable(IInterpreterSiriusVariables.VIEWPOINT, diagram);
+                interpreter.setVariable(IInterpreterSiriusVariables.DIAGRAM, diagram);
+            
+                EObject computedRoot = null;
+                try {
+                    computedRoot = interpreter.evaluateEObject(rootContent, diagram.getDescription().getRootExpression());
+                } catch (final EvaluationException e) {
+                    SiriusPlugin.getDefault().warning("the following diagram description root expression could not be correctly evaluated : " + diagram.getDescription().getRootExpression(), e); //$NON-NLS-1$
+                }
+                
+                interpreter.unSetVariable(IInterpreterSiriusVariables.DIAGRAM);
+                interpreter.unSetVariable(IInterpreterSiriusVariables.VIEWPOINT);
+                
+                if (computedRoot != null) {
+                    rootContent = computedRoot;
+                }
+            }
+        }
+        
         return rootContent;
     }
 
