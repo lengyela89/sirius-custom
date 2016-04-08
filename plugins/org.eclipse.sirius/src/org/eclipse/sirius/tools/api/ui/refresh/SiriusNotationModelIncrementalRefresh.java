@@ -53,7 +53,7 @@ public class SiriusNotationModelIncrementalRefresh {
             System.out.println(" - Description: " + description.getName()); //$NON-NLS-1$
 
             handleNewRepresentation(representation);
-        }	    
+        }
 	}
 	
 	private void initSessionForEditingDomain() {
@@ -132,6 +132,8 @@ public class SiriusNotationModelIncrementalRefresh {
 	        System.out.println("Description (" + description.getName() + ") is OK!"); //$NON-NLS-1$ //$NON-NLS-2$
 	        
 	        descriptionToDiagrams.put((DiagramDescription) description, (DSemanticDiagram) representation);
+	        
+	        
 	    } else {
 	        System.out.println("Description (" + description.getName() + ") is not OK!"); //$NON-NLS-1$ //$NON-NLS-2$
 	    }

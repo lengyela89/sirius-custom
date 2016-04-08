@@ -51,7 +51,7 @@ public class VQLInterpreter {
      * @param expression The IQPL expression
      * @return IQuerySpecification created from the given IQPL expression
      */
-    private IQuerySpecification<?> getQuerySpecification(DiagramDescription diagramDescription, String expression) {
+    public IQuerySpecification<?> getQuerySpecification(DiagramDescription diagramDescription, String expression) {
         String originalExpression = expression;
         if (expressionToQuerySpecificationMap.containsKey(expression)) {
             return expressionToQuerySpecificationMap.get(expression);
@@ -138,7 +138,7 @@ public class VQLInterpreter {
         } else {
             PAnnotation returnAnnotation = null;
             for (IQuerySpecification<?> querySpecification : querySpecifications) {
-                // TODO validation!!!! Mi van, ha elirja a param��tert...
+                // TODO validation!!!! Mi van, ha elirja a param������tert...
                 returnAnnotation = querySpecification.getFirstAnnotationByName(ANNOTATION_RETURN);
                 
                 if (returnAnnotation != null) {

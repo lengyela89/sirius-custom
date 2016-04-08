@@ -1,3 +1,5 @@
 eclipse.preferences.version=1
+encoding//src/org/eclipse/sirius/tools/api/ui/refresh/DSemanticDiagramIncrementalRefresh.java=UTF-8
+encoding//src/org/eclipse/sirius/tools/api/ui/refresh/helper/vql/VQLInterpreter.java=UTF-8
 encoding/<project>=US-ASCII
 encoding/analysis_templates=ISO-8859-1
