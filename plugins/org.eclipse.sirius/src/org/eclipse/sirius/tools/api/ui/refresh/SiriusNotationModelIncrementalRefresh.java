@@ -18,6 +18,7 @@ import org.eclipse.viatra.query.runtime.api.ViatraQueryEngine;
 import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
 import org.eclipse.viatra.query.runtime.emf.EMFScope;
 import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
+import org.eclipse.viatra.transformation.runtime.emf.transformation.eventdriven.InconsistentEventSemanticsException;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -133,7 +134,16 @@ public class SiriusNotationModelIncrementalRefresh {
 	        
 	        descriptionToDiagrams.put((DiagramDescription) description, (DSemanticDiagram) representation);
 	        
-	        
+	        DSemanticDiagramIncrementalRefresh dsdir = new DSemanticDiagramIncrementalRefresh((DSemanticDiagram) representation, session);
+	        try {
+                dsdir.initialize();
+            } catch (ViatraQueryException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (InconsistentEventSemanticsException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
 	    } else {
 	        System.out.println("Description (" + description.getName() + ") is not OK!"); //$NON-NLS-1$ //$NON-NLS-2$
 	    }

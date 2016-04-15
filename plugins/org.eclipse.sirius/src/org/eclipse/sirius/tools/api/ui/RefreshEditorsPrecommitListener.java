@@ -34,6 +34,7 @@ import org.eclipse.sirius.tools.api.ui.refresh.SiriusNotationModelIncrementalRef
 import org.eclipse.sirius.viewpoint.DRepresentation;
 import org.eclipse.sirius.viewpoint.DSemanticDecorator;
 import org.eclipse.sirius.viewpoint.SiriusPlugin;
+import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
 
 import com.google.common.collect.Lists;
 
@@ -107,6 +108,12 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
         this.transactionalEditingDomain = transactionalEditingDomain;
         
         this.snmir = new SiriusNotationModelIncrementalRefresh(transactionalEditingDomain);
+        try {
+            this.snmir.init();
+        } catch (ViatraQueryException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     /**
