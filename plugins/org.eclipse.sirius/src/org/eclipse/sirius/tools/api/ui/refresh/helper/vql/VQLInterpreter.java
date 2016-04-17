@@ -19,7 +19,9 @@ import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.viatra.query.patternlanguage.emf.eMFPatternLanguage.PatternModel;
 import org.eclipse.viatra.query.patternlanguage.emf.specification.SpecificationBuilder;
 import org.eclipse.viatra.query.patternlanguage.patternLanguage.Pattern;
+import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
+import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
 import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
 import org.eclipse.viatra.query.runtime.matchers.psystem.annotations.PAnnotation;
 
@@ -33,7 +35,9 @@ public class VQLInterpreter {
     private static final String ANNOTATION_RETURN = "Return"; //$NON-NLS-1$
     
     
-    private Map<String, IQuerySpecification<?>> expressionToQuerySpecificationMap = null;
+    private SpecificationBuilder specificationBuilder = null;
+    
+    private Map<String, IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>> expressionToQuerySpecificationMap = null;
 
     
     
@@ -42,7 +46,8 @@ public class VQLInterpreter {
     }
     
     public VQLInterpreter() {
-        expressionToQuerySpecificationMap = new HashMap<String, IQuerySpecification<?>>();
+        specificationBuilder = new SpecificationBuilder();
+        expressionToQuerySpecificationMap = new HashMap<String, IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>>();
     }
     
     /**
@@ -51,7 +56,7 @@ public class VQLInterpreter {
      * @param expression The IQPL expression
      * @return IQuerySpecification created from the given IQPL expression
      */
-    public IQuerySpecification<?> getQuerySpecification(DiagramDescription diagramDescription, String expression) {
+    public IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> getQuerySpecification(DiagramDescription diagramDescription, String expression) {
         String originalExpression = expression;
         if (expressionToQuerySpecificationMap.containsKey(expression)) {
             return expressionToQuerySpecificationMap.get(expression);
@@ -82,7 +87,7 @@ public class VQLInterpreter {
         try {
             ResourceSet resourceSet = new ResourceSetImpl();
             Resource resource = resourceSet.createResource(URI.createURI(RESOURCE_URI));
-            SpecificationBuilder specificationBuilder = new SpecificationBuilder();
+            specificationBuilder = new SpecificationBuilder();
             
             // Load Resource from the given expression
             resource.load(is, null);
@@ -99,12 +104,12 @@ public class VQLInterpreter {
                         return null;
                     }
                     
-                    List<IQuerySpecification<?>> querySpecifications = new ArrayList<IQuerySpecification<?>>();
+                    List<IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>> querySpecifications = new ArrayList<IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>>();
                     for (Pattern pattern : patternModel.getPatterns()) {
-                        querySpecifications.add(specificationBuilder.getOrCreateSpecification(pattern));
+                        querySpecifications.add((IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) specificationBuilder.getOrCreateSpecification(pattern));
                     }
                     
-                    IQuerySpecification<?> querySpecification = getQuerySpecificationForReturn(querySpecifications);
+                    IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> querySpecification = getQuerySpecificationForReturn(querySpecifications);
                     expressionToQuerySpecificationMap.put(originalExpression, querySpecification);
                     
                     return querySpecification;
@@ -126,7 +131,7 @@ public class VQLInterpreter {
      * @param querySpecifications The IQuerySpecification instances which were created from the given VQL expression
      * @return Returns that IQuerySpecification instance from the given list, which will provide the result(s)
      */
-    private IQuerySpecification<?> getQuerySpecificationForReturn(List<IQuerySpecification<?>> querySpecifications) {
+    private IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> getQuerySpecificationForReturn(List<IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>> querySpecifications) {
         if (querySpecifications == null) {
             return null;
         }
@@ -137,8 +142,8 @@ public class VQLInterpreter {
             return querySpecifications.get(0);
         } else {
             PAnnotation returnAnnotation = null;
-            for (IQuerySpecification<?> querySpecification : querySpecifications) {
-                // TODO validation!!!! Mi van, ha elirja a param������tert...
+            for (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> querySpecification : querySpecifications) {
+                // TODO validation!!!! Mi van, ha elirja a parametert...
                 returnAnnotation = querySpecification.getFirstAnnotationByName(ANNOTATION_RETURN);
                 
                 if (returnAnnotation != null) {
