@@ -1,4 +1,4 @@
-package org.eclipse.sirius.tools.api.ui.refresh.helper.vql;
+package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql;
 
 public class VQLInterpreterConstants {
 

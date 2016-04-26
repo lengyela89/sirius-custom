@@ -13,30 +13,34 @@ package org.eclipse.sirius.tools.api.ui;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.notify.Notification;
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.transaction.NotificationFilter;
 import org.eclipse.emf.transaction.TransactionalEditingDomain;
 import org.eclipse.emf.transaction.util.TransactionUtil;
 import org.eclipse.sirius.business.api.dialect.command.RefreshRepresentationsCommand;
 import org.eclipse.sirius.business.api.preferences.SiriusPreferencesKeys;
+import org.eclipse.sirius.business.api.query.ResourceQuery;
 import org.eclipse.sirius.business.api.session.ModelChangeTrigger;
 import org.eclipse.sirius.business.api.session.SessionListener;
+import org.eclipse.sirius.business.internal.dialect.command.RefreshImpactedElementsCommand;
 import org.eclipse.sirius.business.internal.session.danalysis.DanglingRefRemovalTrigger;
 import org.eclipse.sirius.ext.base.Option;
 import org.eclipse.sirius.ext.base.Options;
 import org.eclipse.sirius.tools.api.command.ui.RefreshFilterManager;
-import org.eclipse.sirius.tools.api.ui.refresh.SiriusNotationModelIncrementalRefresh;
 import org.eclipse.sirius.viewpoint.DRepresentation;
 import org.eclipse.sirius.viewpoint.DSemanticDecorator;
 import org.eclipse.sirius.viewpoint.SiriusPlugin;
-import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * A listener to refresh all Sirius opened editors. It is used as :
@@ -76,8 +80,6 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
      */
     TransactionalEditingDomain transactionalEditingDomain;
 
-    private SiriusNotationModelIncrementalRefresh snmir = null;
-    
     /**
      * True if this listener must launch a refresh even if the autoRefresh is
      * off.
@@ -106,14 +108,6 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
      */
     public RefreshEditorsPrecommitListener(TransactionalEditingDomain transactionalEditingDomain) {
         this.transactionalEditingDomain = transactionalEditingDomain;
-        
-        this.snmir = new SiriusNotationModelIncrementalRefresh(transactionalEditingDomain);
-        try {
-            this.snmir.init();
-        } catch (ViatraQueryException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
     }
 
     /**
@@ -131,53 +125,49 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
      */
     public Option<Command> localChangesAboutToCommit(Collection<Notification> notifications) {
         Command result = null;
-        // TODO implement
-        
-//        if (!disabled) {
-//            if (needsRefresh()) {
-//                boolean impactingNotification = isImpactingNotification(notifications);
-//                // Do nothing if the notification concern only elements of aird
-//                // resource and that the representationsToForceRefresh is empty.
-//                if (impactingNotification || !representationsToForceRefresh.isEmpty()) {
-//                    Option<? extends Command> optionCommand = getRefreshOpenedRepresentationsCommand(impactingNotification);
-//                    if (optionCommand.some()) {
-//                        result = optionCommand.get();
-//                    }
-//                }
-//                setForceRefresh(false);
-//                representationsToForceRefresh.clear();
-//            } else if (isImpactingNotification(notifications)) {
-//                Option<? extends Command> optionCommand = getRefreshImpactedElementsCommandForOpenedRepresentations(notifications);
-//                if (optionCommand.some()) {
-//                    result = optionCommand.get();
-//                }
-//            }
-//        }
-//        disabled = false;
-        
+        if (!disabled) {
+            if (needsRefresh()) {
+                boolean impactingNotification = isImpactingNotification(notifications);
+                // Do nothing if the notification concern only elements of aird
+                // resource and that the representationsToForceRefresh is empty.
+                if (impactingNotification || !representationsToForceRefresh.isEmpty()) {
+                    Option<? extends Command> optionCommand = getRefreshOpenedRepresentationsCommand(impactingNotification);
+                    if (optionCommand.some()) {
+                        result = optionCommand.get();
+                    }
+                }
+                setForceRefresh(false);
+                representationsToForceRefresh.clear();
+            } else if (isImpactingNotification(notifications)) {
+                Option<? extends Command> optionCommand = getRefreshImpactedElementsCommandForOpenedRepresentations(notifications);
+                if (optionCommand.some()) {
+                    result = optionCommand.get();
+                }
+            }
+        }
+        disabled = false;
         return Options.newSome(result);
     }
 
-    // TODO remove
-//    private boolean isImpactingNotification(final Collection<Notification> notifications) {
-//        boolean isImpactingNotification = false;
-//        Set<EObject> alreadyDoneNotifiers = Sets.newHashSet();
-//        for (Notification notification : notifications) {
-//            Object notifier = notification.getNotifier();
-//            if (notifier instanceof EObject) {
-//                EObject eObjectNotifier = (EObject) notifier;
-//                if (!alreadyDoneNotifiers.contains(eObjectNotifier)) {
-//                    alreadyDoneNotifiers.add(eObjectNotifier);
-//                    Resource notifierResource = eObjectNotifier.eResource();
-//                    if (notifierResource != null && !new ResourceQuery(notifierResource).isRepresentationsResource()) {
-//                        isImpactingNotification = true;
-//                        break;
-//                    }
-//                }
-//            }
-//        }
-//        return isImpactingNotification;
-//    }
+    private boolean isImpactingNotification(final Collection<Notification> notifications) {
+        boolean isImpactingNotification = false;
+        Set<EObject> alreadyDoneNotifiers = Sets.newHashSet();
+        for (Notification notification : notifications) {
+            Object notifier = notification.getNotifier();
+            if (notifier instanceof EObject) {
+                EObject eObjectNotifier = (EObject) notifier;
+                if (!alreadyDoneNotifiers.contains(eObjectNotifier)) {
+                    alreadyDoneNotifiers.add(eObjectNotifier);
+                    Resource notifierResource = eObjectNotifier.eResource();
+                    if (notifierResource != null && !new ResourceQuery(notifierResource).isRepresentationsResource()) {
+                        isImpactingNotification = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return isImpactingNotification;
+    }
 
     /**
      * Compute the refresh command or null if no refresh is needed.
@@ -225,21 +215,20 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
         }
     }
 
-    // TODO remove
-//    private Option<? extends Command> getRefreshImpactedElementsCommandForOpenedRepresentations(Collection<Notification> notifications) {
-//        Option<? extends Command> result = Options.newNone();
-//        Collection<DRepresentation> representationsToRefresh = new LinkedHashSet<DRepresentation>();
-//        representationsToRefresh.addAll(RefreshFilterManager.INSTANCE.getOpenedRepresantationsToRefresh());
-//
-//        restrictRepresentationWithinCurrentEditingDomain(representationsToRefresh);
-//
-//        if (!representationsToRefresh.isEmpty()) {
-//            CompoundCommand cc = new CompoundCommand();
-//            cc.append(new RefreshImpactedElementsCommand(transactionalEditingDomain, new NullProgressMonitor(), representationsToRefresh, notifications));
-//            result = Options.newSome(cc);
-//        }
-//        return result;
-//    }
+    private Option<? extends Command> getRefreshImpactedElementsCommandForOpenedRepresentations(Collection<Notification> notifications) {
+        Option<? extends Command> result = Options.newNone();
+        Collection<DRepresentation> representationsToRefresh = new LinkedHashSet<DRepresentation>();
+        representationsToRefresh.addAll(RefreshFilterManager.INSTANCE.getOpenedRepresantationsToRefresh());
+
+        restrictRepresentationWithinCurrentEditingDomain(representationsToRefresh);
+
+        if (!representationsToRefresh.isEmpty()) {
+            CompoundCommand cc = new CompoundCommand();
+            cc.append(new RefreshImpactedElementsCommand(transactionalEditingDomain, new NullProgressMonitor(), representationsToRefresh, notifications));
+            result = Options.newSome(cc);
+        }
+        return result;
+    }
 
     /**
      * Return the actual forceRefresh status.
@@ -282,20 +271,18 @@ public class RefreshEditorsPrecommitListener implements ModelChangeTrigger, Sess
      */
     public void notify(int changeKind) {
         if (SessionListener.REPLACED == changeKind) {
-            // TODO implement
-            
-//            if (needsRefresh()) {
-//                setForceRefresh(false);
-//                // The session has detected a reload of a resource (possibly
-//                // because
-//                // of an outside modification of the resource) so we must also
-//                // launch a refresh.
-//                Option<? extends Command> optionCommand = getRefreshOpenedRepresentationsCommand(true);
-//                representationsToForceRefresh.clear();
-//                if (optionCommand.some()) {
-//                    transactionalEditingDomain.getCommandStack().execute(optionCommand.get());
-//                }
-//            }
+            if (needsRefresh()) {
+                setForceRefresh(false);
+                // The session has detected a reload of a resource (possibly
+                // because
+                // of an outside modification of the resource) so we must also
+                // launch a refresh.
+                Option<? extends Command> optionCommand = getRefreshOpenedRepresentationsCommand(true);
+                representationsToForceRefresh.clear();
+                if (optionCommand.some()) {
+                    transactionalEditingDomain.getCommandStack().execute(optionCommand.get());
+                }
+            }
         }
     }
 

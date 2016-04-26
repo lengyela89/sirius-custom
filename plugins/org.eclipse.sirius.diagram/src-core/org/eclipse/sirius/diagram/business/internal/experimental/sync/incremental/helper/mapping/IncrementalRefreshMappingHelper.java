@@ -1,16 +1,16 @@
-package org.eclipse.sirius.tools.api.ui.refresh.helper.mapping;
+package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.mapping;
 
 import java.util.Set;
 
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreter;
 import org.eclipse.sirius.diagram.description.ContainerMapping;
 import org.eclipse.sirius.diagram.description.DescriptionFactory;
 import org.eclipse.sirius.diagram.description.DescriptionPackage;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.sirius.diagram.description.EdgeMapping;
 import org.eclipse.sirius.diagram.description.NodeMapping;
-import org.eclipse.sirius.tools.api.ui.refresh.helper.vql.VQLInterpreter;
 
 import com.google.common.collect.Sets;
 

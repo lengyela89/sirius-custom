@@ -1,15 +1,15 @@
-package org.eclipse.sirius.tools.api.ui.refresh;
+package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental;
 
 import org.eclipse.emf.transaction.TransactionalEditingDomain;
 import org.eclipse.sirius.business.api.dialect.DialectManager;
 import org.eclipse.sirius.business.api.session.Session;
 import org.eclipse.sirius.business.api.session.SessionManager;
 import org.eclipse.sirius.diagram.DSemanticDiagram;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.mapping.IncrementalRefreshMappingHelper;
 import org.eclipse.sirius.diagram.description.ContainerMapping;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.sirius.diagram.description.EdgeMapping;
 import org.eclipse.sirius.diagram.description.NodeMapping;
-import org.eclipse.sirius.tools.api.ui.refresh.helper.mapping.IncrementalRefreshMappingHelper;
 import org.eclipse.sirius.viewpoint.DRepresentation;
 import org.eclipse.sirius.viewpoint.description.RepresentationDescription;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
@@ -134,16 +134,16 @@ public class SiriusNotationModelIncrementalRefresh {
 	        
 	        descriptionToDiagrams.put((DiagramDescription) description, (DSemanticDiagram) representation);
 	        
-	        DSemanticDiagramIncrementalRefresh dsdir = new DSemanticDiagramIncrementalRefresh((DSemanticDiagram) representation, session);
-	        try {
-                dsdir.initialize();
-            } catch (ViatraQueryException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } catch (InconsistentEventSemanticsException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+//	        DSemanticDiagramIncrementalRefresh dsdir = null; //new DSemanticDiagramIncrementalRefresh((DSemanticDiagram) representation, session);
+//	        try {
+//                //dsdir.initialize();
+//            } catch (ViatraQueryException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            } catch (InconsistentEventSemanticsException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            }
 	    } else {
 	        System.out.println("Description (" + description.getName() + ") is not OK!"); //$NON-NLS-1$ //$NON-NLS-2$
 	    }

@@ -340,7 +340,7 @@ public class DDiagramElementSynchronizer {
         return newEdge;
     }
 
-    private void computeVisibilityOnCreation(DiagramMappingsManager mappingManager, final DDiagramElement element) {
+    public void computeVisibilityOnCreation(DiagramMappingsManager mappingManager, final DDiagramElement element) {
         final DisplayService service = DisplayServiceManager.INSTANCE.getDisplayService(DisplayMode.CREATION);
         if (service == null) {
             return;
@@ -975,7 +975,8 @@ public class DDiagramElementSynchronizer {
         return result;
     }
 
-    private void refreshSemanticElements(final DDiagramElement element, final DiagramElementMapping mapping) {
+    // TODO: IQLabs/lengyela
+    public void refreshSemanticElements(final DDiagramElement element, final DiagramElementMapping mapping) {
         DiagramElementMappingHelper.refreshSemanticElements(mapping, element, this.interpreter);
     }
 }

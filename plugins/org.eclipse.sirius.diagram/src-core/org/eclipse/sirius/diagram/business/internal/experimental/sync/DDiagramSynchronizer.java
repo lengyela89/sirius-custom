@@ -13,7 +13,6 @@ package org.eclipse.sirius.diagram.business.internal.experimental.sync;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -30,7 +29,6 @@ import org.eclipse.emf.ecore.EStructuralFeature.Setting;
 import org.eclipse.emf.ecore.EcoreFactory;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.sirius.business.api.helper.task.TaskHelper;
-import org.eclipse.sirius.business.api.logger.RuntimeLoggerManager;
 import org.eclipse.sirius.business.api.session.Session;
 import org.eclipse.sirius.business.api.session.SessionManager;
 import org.eclipse.sirius.common.tools.DslCommonPlugin;
@@ -67,6 +65,8 @@ import org.eclipse.sirius.diagram.business.api.query.DiagramElementMappingQuery;
 import org.eclipse.sirius.diagram.business.api.query.EObjectQuery;
 import org.eclipse.sirius.diagram.business.api.query.IEdgeMappingQuery;
 import org.eclipse.sirius.diagram.business.api.refresh.RefreshExtensionService;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.DSemanticDiagramIncrementalRefresh;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.DSemanticDiagramIncrementalRefreshFactory;
 import org.eclipse.sirius.diagram.business.internal.metamodel.description.operations.EdgeMappingImportWrapper;
 import org.eclipse.sirius.diagram.business.internal.metamodel.helper.DiagramComponentizationHelper;
 import org.eclipse.sirius.diagram.business.internal.metamodel.helper.EdgeMappingHelper;
@@ -92,7 +92,6 @@ import org.eclipse.sirius.ecore.extender.business.api.accessor.exception.Feature
 import org.eclipse.sirius.ecore.extender.business.api.accessor.exception.MetaClassNotFoundException;
 import org.eclipse.sirius.ext.base.Option;
 import org.eclipse.sirius.ext.base.Options;
-import org.eclipse.sirius.ext.base.cache.KeyCache;
 import org.eclipse.sirius.ext.base.collect.GSetIntersection;
 import org.eclipse.sirius.ext.base.collect.MultipleCollection;
 import org.eclipse.sirius.ext.base.collect.SetIntersection;
@@ -103,6 +102,8 @@ import org.eclipse.sirius.viewpoint.description.DecorationDescription;
 import org.eclipse.sirius.viewpoint.description.RepresentationElementMapping;
 import org.eclipse.sirius.viewpoint.description.SemanticBasedDecoration;
 import org.eclipse.sirius.viewpoint.description.style.StyleDescription;
+import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
+import org.eclipse.viatra.transformation.runtime.emf.transformation.eventdriven.InconsistentEventSemanticsException;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
@@ -163,6 +164,8 @@ public class DDiagramSynchronizer {
 
     private RefreshIdsHolder ids;
 
+    private DSemanticDiagramIncrementalRefresh incrementalRefresh;
+
     /**
      * Create a new synchronizer.
      * 
@@ -211,7 +214,15 @@ public class DDiagramSynchronizer {
         this.diagram = diagram;
         this.session = SessionManager.INSTANCE.getSession(diagram.getTarget());
         this.sync = new DDiagramElementSynchronizer(this.diagram, this.interpreter, this.accessor);
-        initDiagramRelatedFields();
+        try {
+            initDiagramRelatedFields();
+        } catch (ViatraQueryException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (InconsistentEventSemanticsException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -241,6 +252,12 @@ public class DDiagramSynchronizer {
             }
             initDiagramRelatedFields();
             monitor.worked(1);
+        } catch (ViatraQueryException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (InconsistentEventSemanticsException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         } finally {
             monitor.done();
         }
@@ -270,13 +287,16 @@ public class DDiagramSynchronizer {
         return new NoUICallback();
     }
 
-    private void initDiagramRelatedFields() {
+    private void initDiagramRelatedFields() throws ViatraQueryException, InconsistentEventSemanticsException {
         this.ids = RefreshIdsHolder.getOrCreateHolder(diagram);
         this.edgeHelper = new DEdgeSynchronizerHelper(this, diagram, accessor);
         this.nodHelper = new DNodeSynchronizerHelper(this, diagram, accessor);
         this.diagramMappingsManager = DiagramMappingsManagerRegistry.INSTANCE.getDiagramMappingsManager(session, diagram);
         this.mappingsUpdater = new MappingsUpdater(diagram, diagramMappingsManager, this, ids);
 
+        // Create DSemanticDiagramIncrementalRefresh instance to manage incremental refresh
+        this.incrementalRefresh = DSemanticDiagramIncrementalRefreshFactory.getInstance(diagram);
+        this.incrementalRefresh.initialize(session, description, diagramMappingsManager, interpreter, accessor);
     }
 
     private void activateInitialLayers() {
@@ -357,93 +377,101 @@ public class DDiagramSynchronizer {
     }
 
     private void refreshOperation(final IProgressMonitor monitor) {
-        try {
-            KeyCache.DEFAULT.clear();
-            // Semantic changes should be possible when a representation
-            // representation
-            // is locked (CDO)
-            // We launch a refresh only if the diagram can be edited
-            // so that the refresh does not lead to the modification of
-            // non-editable
-            // elements and hence cause a Rollback
-            if (this.accessor.getPermissionAuthority().canEditInstance(diagram)) {
-                RuntimeLoggerManager.INSTANCE.clear(this.description);
-
-                activateNewMandatoryAdditionalLayers();
-
-                final Map<DiagramElementMapping, Collection<EdgeTarget>> mappingsToEdgeTargets = new HashMap<DiagramElementMapping, Collection<EdgeTarget>>();
-                final Map<EdgeMapping, Collection<MappingBasedDecoration>> edgeToMappingBasedDecoration = new HashMap<EdgeMapping, Collection<MappingBasedDecoration>>();
-                final Map<String, Collection<SemanticBasedDecoration>> edgeToSemanticBasedDecoration = new HashMap<String, Collection<SemanticBasedDecoration>>();
-
-                /*
-                 * retrieve mappings
-                 */
-                final List<NodeMapping> nodeMappings = diagramMappingsManager.getNodeMappings();
-                final List<EdgeMapping> edgeMappings = diagramMappingsManager.getEdgeMappings();
-                final List<ContainerMapping> containerMappings = diagramMappingsManager.getContainerMappings();
-
-                RefreshExtensionService.getInstance().beforeRefresh(this.diagram);
-
-                final int mappingNumbers = nodeMappings.size() + edgeMappings.size() + containerMappings.size();
-                monitor.beginTask(Messages.DDiagramSynchronizer_refreshMappingsMsg, mappingNumbers);
-
-                /*
-                 * compute a first time the cache with old mappings => updater
-                 * need the cache
-                 */
-                computePreviousCandidatesCache();
-                /* update mappings */
-                mappingsUpdater.updateMappings();
-                /* compute a second time the cache with updated mapping */
-                computePreviousCandidatesCache();
-
-                fillIgnoredElements();
-
-                final Set<AbstractDNodeCandidate> elementsCreated = LayerService.withoutLayersMode(description) ? null : new HashSet<AbstractDNodeCandidate>();
-
-                /* Let's refresh the node mappings. */
-                for (final NodeMapping mapping : nodeMappings) {
-                    refreshNodeMapping(mappingsToEdgeTargets, this.diagram, mapping, elementsCreated, new SubProgressMonitor(monitor, 1));
-                }
-
-                /* Let's refresh the container mappings */
-                if (elementsCreated != null) {
-                    elementsCreated.clear();
-                }
-
-                for (final ContainerMapping mapping : containerMappings) {
-                    refreshContainerMapping(mappingsToEdgeTargets, this.diagram, mapping, elementsCreated, false, false, new SubProgressMonitor(monitor, 1));
-                }
-
-                /* handle multiple importers . */
-                handleImportersIssues();
-
-                /* Compute the decorations. */
-                computeDecorations(mappingsToEdgeTargets, edgeToSemanticBasedDecoration, edgeToMappingBasedDecoration);
-
-                /*
-                 * now all the nodes/containers are done and ready in the
-                 * mappintToEdgeTarget map.
-                 */
-                edgesDones = new HashSet<DDiagramElement>();
-
-                processEdgeMappingsRefresh(edgeMappings, mappingsToEdgeTargets, edgeToMappingBasedDecoration, edgeToSemanticBasedDecoration, monitor);
-
-                edgesDones.clear();
-
-                deleteIgnoredElementsAndDuplicates();
-
-                /* Garbage collect orphan computed StyleDescription. */
-                removeOrphanComputedStyleDescriptions();
-
-                RefreshExtensionService.getInstance().postRefresh(this.diagram);
-                /* We can now clear the cache. */
-                clearCache();
-            }
-            KeyCache.DEFAULT.clear();
-        } finally {
-            monitor.done();
-        }
+        RefreshExtensionService.getInstance().beforeRefresh(this.diagram);
+        
+        incrementalRefresh.refresh();
+        
+        RefreshExtensionService.getInstance().postRefresh(this.diagram);
+        
+        monitor.done();
+        
+//        try {
+//            KeyCache.DEFAULT.clear();
+//            // Semantic changes should be possible when a representation
+//            // representation
+//            // is locked (CDO)
+//            // We launch a refresh only if the diagram can be edited
+//            // so that the refresh does not lead to the modification of
+//            // non-editable
+//            // elements and hence cause a Rollback
+//            if (this.accessor.getPermissionAuthority().canEditInstance(diagram)) {
+//                RuntimeLoggerManager.INSTANCE.clear(this.description);
+//
+//                activateNewMandatoryAdditionalLayers();
+//
+//                final Map<DiagramElementMapping, Collection<EdgeTarget>> mappingsToEdgeTargets = new HashMap<DiagramElementMapping, Collection<EdgeTarget>>();
+//                final Map<EdgeMapping, Collection<MappingBasedDecoration>> edgeToMappingBasedDecoration = new HashMap<EdgeMapping, Collection<MappingBasedDecoration>>();
+//                final Map<String, Collection<SemanticBasedDecoration>> edgeToSemanticBasedDecoration = new HashMap<String, Collection<SemanticBasedDecoration>>();
+//
+//                /*
+//                 * retrieve mappings
+//                 */
+//                final List<NodeMapping> nodeMappings = diagramMappingsManager.getNodeMappings();
+//                final List<EdgeMapping> edgeMappings = diagramMappingsManager.getEdgeMappings();
+//                final List<ContainerMapping> containerMappings = diagramMappingsManager.getContainerMappings();
+//
+//                RefreshExtensionService.getInstance().beforeRefresh(this.diagram);
+//
+//                final int mappingNumbers = nodeMappings.size() + edgeMappings.size() + containerMappings.size();
+//                monitor.beginTask(Messages.DDiagramSynchronizer_refreshMappingsMsg, mappingNumbers);
+//
+//                /*
+//                 * compute a first time the cache with old mappings => updater
+//                 * need the cache
+//                 */
+//                computePreviousCandidatesCache();
+//                /* update mappings */
+//                mappingsUpdater.updateMappings();
+//                /* compute a second time the cache with updated mapping */
+//                computePreviousCandidatesCache();
+//
+//                fillIgnoredElements();
+//
+//                final Set<AbstractDNodeCandidate> elementsCreated = LayerService.withoutLayersMode(description) ? null : new HashSet<AbstractDNodeCandidate>();
+//
+//                /* Let's refresh the node mappings. */
+//                for (final NodeMapping mapping : nodeMappings) {
+//                    refreshNodeMapping(mappingsToEdgeTargets, this.diagram, mapping, elementsCreated, new SubProgressMonitor(monitor, 1));
+//                }
+//
+//                /* Let's refresh the container mappings */
+//                if (elementsCreated != null) {
+//                    elementsCreated.clear();
+//                }
+//
+//                for (final ContainerMapping mapping : containerMappings) {
+//                    refreshContainerMapping(mappingsToEdgeTargets, this.diagram, mapping, elementsCreated, false, false, new SubProgressMonitor(monitor, 1));
+//                }
+//
+//                /* handle multiple importers . */
+//                handleImportersIssues();
+//
+//                /* Compute the decorations. */
+//                computeDecorations(mappingsToEdgeTargets, edgeToSemanticBasedDecoration, edgeToMappingBasedDecoration);
+//
+//                /*
+//                 * now all the nodes/containers are done and ready in the
+//                 * mappintToEdgeTarget map.
+//                 */
+//                edgesDones = new HashSet<DDiagramElement>();
+//
+//                processEdgeMappingsRefresh(edgeMappings, mappingsToEdgeTargets, edgeToMappingBasedDecoration, edgeToSemanticBasedDecoration, monitor);
+//
+//                edgesDones.clear();
+//
+//                deleteIgnoredElementsAndDuplicates();
+//
+//                /* Garbage collect orphan computed StyleDescription. */
+//                removeOrphanComputedStyleDescriptions();
+//
+//                RefreshExtensionService.getInstance().postRefresh(this.diagram);
+//                /* We can now clear the cache. */
+//                clearCache();
+//            }
+//            KeyCache.DEFAULT.clear();
+//        } finally {
+//            monitor.done();
+//        }
     }
 
     /**
