@@ -5,7 +5,7 @@ import java.util.Set;
 
 import org.eclipse.sirius.diagram.DSemanticDiagram;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreter;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.CompositeQuerySpecification.CompositePQuery;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.DEdgeCompositeQuerySpecification.DEdgeCompositePQuery;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.ElementBasedEdgeCompositeQuerySpecification.ElementBasedEdgeCompositePQuery;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
@@ -28,7 +28,7 @@ public class ElementBasedEdgeCompositeQuerySpecification extends CompositeQueryS
         super(new ElementBasedEdgeCompositePQuery(diagram, ruleDescriptorId, finderExpressionQS, finderMappingQS, semanticCandidatesExpressionQS));
     }
 
-    public static class ElementBasedEdgeCompositePQuery extends CompositePQuery {
+    public static class ElementBasedEdgeCompositePQuery extends DEdgeCompositePQuery {
         private IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> finderExpressionQS;
 
         private IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> finderMappingQS;

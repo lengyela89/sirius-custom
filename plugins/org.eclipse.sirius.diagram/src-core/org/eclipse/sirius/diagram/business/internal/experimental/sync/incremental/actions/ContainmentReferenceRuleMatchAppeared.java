@@ -44,7 +44,7 @@ public class ContainmentReferenceRuleMatchAppeared extends ReferenceRuleMatchApp
             dDiagramElementSynchronizer.createStyle(edge, (EdgeMapping) rule.getMapping(), rule.getDiagram());
             dDiagramElementSynchronizer.refresh(edge);
             dDiagramElementSynchronizer.updatePath(edge, (EdgeMapping) rule.getMapping(),
-                    Maps.<DiagramElementMapping, Collection<EdgeTarget>>newHashMap());            
+                    Maps.<DiagramElementMapping, Collection<EdgeTarget>>newHashMap());
         }
         
         return trace;

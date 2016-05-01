@@ -13,7 +13,7 @@ import org.eclipse.viatra.transformation.evm.api.event.EventFilter;
 public class RelationBasedEdgeElementRule extends DEdgeElementRule<TransformationRuleDescriptor, TransformationRuleDescriptor> {
 
 
-    public static class RelationBasedEdgeElementRuleCandidate extends DEdgeElementRuleCancicate<TransformationRuleDescriptor, TransformationRuleDescriptor> {
+    public static class RelationBasedEdgeElementRuleCandidate extends DEdgeElementRuleCandidate<TransformationRuleDescriptor, TransformationRuleDescriptor> {
 
         public RelationBasedEdgeElementRuleCandidate(ElementRuleDescriptor ruleDescriptor, Integer priority, EventFilter<IPatternMatch> eventFilter,
                 EdgeMapping edgeMapping, TransformationRuleDescriptor sourceRuleDescriptor, TransformationRuleDescriptor targetRuleDescriptor) {

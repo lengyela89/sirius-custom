@@ -16,7 +16,7 @@ public abstract class DEdgeElementRule<SourceRuleDescriptor extends Transformati
     protected TargetRuleDescriptor targetRuleDescriptor;
 
     
-    public static abstract class DEdgeElementRuleCancicate<SourceRuleDescriptor extends TransformationRuleDescriptor,
+    public static abstract class DEdgeElementRuleCandidate<SourceRuleDescriptor extends TransformationRuleDescriptor,
             TargetRuleDescriptor extends TransformationRuleDescriptor> extends RuleCandidate<ElementRuleDescriptor> {
 
         protected EventFilter<IPatternMatch> eventFilter;
@@ -25,7 +25,7 @@ public abstract class DEdgeElementRule<SourceRuleDescriptor extends Transformati
         protected TargetRuleDescriptor targetRuleDescriptor;
         
         
-        public DEdgeElementRuleCancicate(ElementRuleDescriptor ruleDescriptor, Integer priority,
+        public DEdgeElementRuleCandidate(ElementRuleDescriptor ruleDescriptor, Integer priority,
                 EventFilter<IPatternMatch> eventFilter, EdgeMapping edgeMapping,
                 SourceRuleDescriptor sourceRuleDescriptor, TargetRuleDescriptor targetRuleDescriptor) {
             super(ruleDescriptor, priority);

@@ -2,6 +2,7 @@ package org.eclipse.sirius.diagram.business.internal.experimental.sync.increment
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
@@ -25,13 +26,20 @@ import org.eclipse.sirius.diagram.business.api.query.ContainerMappingQuery;
 import org.eclipse.sirius.diagram.business.internal.componentization.mappings.DiagramDescriptionMappingsManagerImpl;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.IsMappingOfCurrentDiagramDescription;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreter;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.AbstractDNodeCompositeQuerySpecification;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.CompositeQuerySpecification;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.CompositeQuerySpecification.CompositePQuery;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.RelationBasedEdgeCompositeQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.AbstractDNodeContainmentQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.AbstractDNodeSCEQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.DSemanticDiagramSiriusQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.EBEFinderExpressionCompositeQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.ElementBasedEdgeSCEQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.ReferenceQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.ReferenceQuerySpecification.ReferencePQuery;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.RelationBasedEdgeTFEQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecificationFactory;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.AbstractDNodeElementRule.AbstractDNodeElementRuleCandidate;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.ContainmentReferenceRule.ContainmentReferenceRuleCandidate;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.DEdgeElementRule.DEdgeElementRuleCancicate;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.DEdgeElementRule.DEdgeElementRuleCandidate;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.ElementBasedEdgeElementRule.ElementBasedEdgeElementRuleCandidate;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RelationBasedEdgeElementRule.RelationBasedEdgeElementRuleCandidate;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RootElementRule.RootElementRuleCandidate;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RuleCandidate;
@@ -41,11 +49,8 @@ import org.eclipse.sirius.diagram.description.DiagramElementMapping;
 import org.eclipse.sirius.diagram.description.EdgeMapping;
 import org.eclipse.sirius.diagram.description.NodeMapping;
 import org.eclipse.sirius.ecore.extender.business.api.accessor.ModelAccessor;
-import org.eclipse.viatra.query.runtime.api.IPatternMatch;
-import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
-import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
 import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
-import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PParameter;
+import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
 import org.eclipse.viatra.transformation.runtime.emf.transformation.eventdriven.InconsistentEventSemanticsException;
 
 import com.google.common.base.Predicate;
@@ -89,9 +94,11 @@ public class DSemanticDiagramIncrementalRefresh {
     private Map<String, String> fqnToExpressionMap = null;
     
     // TODO: megoldani szebben
-    private Map<DiagramElementMapping, RuleDescriptor> mappingToRuleDescriptor = null;
+    private Map<EObject, RuleDescriptor> mappingToRuleDescriptor = null;
 
     private DiagramDescriptionMappingsManager diagramDescriptionMappingsManager;
+
+    private SiriusQuerySpecificationFactory querySpecificationFactory;
 
     
     
@@ -119,7 +126,7 @@ public class DSemanticDiagramIncrementalRefresh {
             this.diagramMappingsManager = diagramMappingsManager;
             this.interpreter = interpreter;
             this.accessor = accessor;
-            this.vqlInterpreter = new VQLInterpreter();
+            this.querySpecificationFactory = new SiriusQuerySpecificationFactory(diagram);
             this.transformationInitializer = new SiriusNotationModelIncrementalRefreshTransformationInitializer(session, diagram, description, diagramMappingsManager);
             
             // TODO: torolni majd ha mar nem kell
@@ -159,7 +166,7 @@ public class DSemanticDiagramIncrementalRefresh {
         configuration.setSourceModel(diagram.getTarget().eResource());
         configuration.setTargetModel(session.getSessionResource());
         
-        ElementRuleDescriptor ruleDescriptor = createRuleDescriptionForRootElement(configuration);
+        ElementRuleDescriptor ruleDescriptor = createRuleDescriptorForRootElement(configuration);
 
         for (DiagramElementMapping mapping : getMappings(description)) {
             processDiagramElementMapping(mapping, configuration, ruleDescriptor);
@@ -168,25 +175,206 @@ public class DSemanticDiagramIncrementalRefresh {
         return configuration;
     }
     
-    // TODO: ez kezdetleges megoldas!!!! Javitani kell! Forras elemet le lehessen kotni!!!
-    // TODO: expression nagyon nem jo igy....
-    private ElementRuleDescriptor createRuleDescriptionForRootElement(Configuration configuration) {
+    private ElementRuleDescriptor createRuleDescriptorForRootElement(Configuration configuration) {
         ID++;
+        
         EClass rootElementType = diagram.getTarget().eClass();
         
-        // TODO:!!!
-        String expression = "vql: @Return(parameter=\"semanticRoot\") pattern element_dSemanticDiagram(semanticRoot : " + rootElementType.getName() + ") { " + rootElementType.getName() + "(semanticRoot); }";   //$NON-NLS-1$//$NON-NLS-2$//$NON-NLS-3$
-        IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> querySpecification = vqlInterpreter.getQuerySpecification(description, expression, ID);
-        CompositeQuerySpecification<CompositePQuery> compositeQuerySpecification = new CompositeQuerySpecification<CompositePQuery>(diagram, ID, querySpecification);
+        DSemanticDiagramSiriusQuerySpecification querySpecification = querySpecificationFactory.createDSemanticDiagramSiriusQuerySpecification(rootElementType);
         
-        transformationInitializer.getFQNToQuerySpecificationMap().put(compositeQuerySpecification.getFullyQualifiedName(), compositeQuerySpecification);
+        transformationInitializer.getFQNToQuerySpecificationMap().put(querySpecification.getFullyQualifiedName(), querySpecification);
         
-        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, DiagramPackage.eINSTANCE.getDSemanticDiagram(), compositeQuerySpecification.getFullyQualifiedName());
+        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, DiagramPackage.eINSTANCE.getDSemanticDiagram(), querySpecification.getFullyQualifiedName());
         configuration.getRuleDescriptors().add(ruleDescriptor);
         
         transformationInitializer.getRuleCandidates().add(new RootElementRuleCandidate(ruleDescriptor, PRIORITY_ABSTRACT_DNODE, diagram));
         
+        // TODO: torolni majd ha mar nem kell
+        this.mappingToRuleDescriptor.put(description, ruleDescriptor);
+        
         return ruleDescriptor;
+    }
+    
+    private void createRuleDescriptorFromNodeMapping(AbstractDNodeSCEQuerySpecification querySpecification, NodeMapping mapping,
+            Configuration configuration, ElementRuleDescriptor parentElementRuleDescriptor) {
+        ID++;
+        
+        // Get Container's type
+        EClass containerType = parentElementRuleDescriptor.getElementType();
+                
+        EClass elementType = null;
+        if (containerType == DiagramPackage.eINSTANCE.getDNodeList() && !isBorderedNodeMapping(mapping)) {
+            elementType = DiagramPackage.eINSTANCE.getDNodeListElement();
+        } else {
+            elementType = DiagramPackage.eINSTANCE.getDNode();
+        }
+        
+        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, elementType, querySpecification.getFullyQualifiedName());
+        configuration.getRuleDescriptors().add(ruleDescriptor);
+        
+        transformationInitializer.getRuleCandidates().add(new AbstractDNodeElementRuleCandidate(ruleDescriptor, PRIORITY_ABSTRACT_DNODE, null, mapping));
+        
+        // TODO: torolni majd ha mar nem kell
+        mappingToRuleDescriptor.put(mapping, ruleDescriptor);
+        
+        // Call this function on the child mappings
+        for (DiagramElementMapping childMapping : getMappings(mapping)) {
+            processDiagramElementMapping(childMapping, configuration, ruleDescriptor);
+        }
+        
+        createContainementReferenceRuleForAbstractDNode(
+                configuration,
+                querySpecificationFactory.createAbstractDNodeContainmentQuerySpecification(
+                        querySpecification.getInternalQueryRepresentation().getParentQS(), querySpecification),
+                parentElementRuleDescriptor,
+                ruleDescriptor);
+
+    }
+    
+    private void createRuleDescriptorFromContainerMapping(AbstractDNodeSCEQuerySpecification querySpecification, ContainerMapping mapping,
+            Configuration configuration, ElementRuleDescriptor parentElementRuleDescriptor) {
+        ID++;
+        
+        EClass elementType = null;
+        if (new ContainerMappingQuery(mapping).isListContainer()) {
+            elementType = DiagramPackage.eINSTANCE.getDNodeList();
+        } else {
+            elementType = DiagramPackage.eINSTANCE.getDNodeContainer();
+        }
+
+        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, elementType, querySpecification.getFullyQualifiedName());
+        configuration.getRuleDescriptors().add(ruleDescriptor);
+        
+        transformationInitializer.getRuleCandidates().add(new AbstractDNodeElementRuleCandidate(ruleDescriptor, PRIORITY_ABSTRACT_DNODE, null, mapping));
+        
+        // TODO: torolni majd ha mar nem kell
+        mappingToRuleDescriptor.put(mapping, ruleDescriptor);
+        
+        // Call this function on the child mappings
+        for (DiagramElementMapping childMapping : getMappings(mapping)) {
+            processDiagramElementMapping(childMapping, configuration, ruleDescriptor);
+        }            
+        
+        createContainementReferenceRuleForAbstractDNode(
+                configuration,
+                querySpecificationFactory.createAbstractDNodeContainmentQuerySpecification(
+                        querySpecification.getInternalQueryRepresentation().getParentQS(), querySpecification),
+                parentElementRuleDescriptor,
+                ruleDescriptor);
+    }
+    
+    private void createRuleDescriptorFromRelationBasedEdgeMapping(EdgeMapping mapping, Configuration configuration, ElementRuleDescriptor parentElementRuleDescriptor) {
+        if (mapping.getSourceMapping().size() > 1 || mapping.getTargetMapping().size() > 1) {
+            throw new IllegalStateException("Multiple source and/or target mappings for edges are not yet supported!"); //$NON-NLS-1$
+        }
+        
+        ID++;
+
+        // TODO: SUPPORT MULTIPLE SOURCE AND TARGET MAPPINGS
+        ElementRuleDescriptor sourceRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mapping.getSourceMapping().get(0));
+        ElementRuleDescriptor targetRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mapping.getTargetMapping().get(0));
+
+        // RelationBasedEdge
+        String expression = mapping.getTargetFinderExpression();
+        
+        SiriusQuerySpecification<? extends PQuery> ownerQS = transformationInitializer.getFQNToQuerySpecificationMap().get(parentElementRuleDescriptor.getPatternFQN());
+
+        SiriusQuerySpecification<? extends PQuery> sourceQS = transformationInitializer.getFQNToQuerySpecificationMap().get(sourceRuleDescriptor.getPatternFQN());
+        SiriusQuerySpecification<? extends PQuery> targetQS = transformationInitializer.getFQNToQuerySpecificationMap().get(targetRuleDescriptor.getPatternFQN());
+        SiriusQuerySpecification<? extends PQuery> targetFinderExpressionQS = querySpecificationFactory.createSiriusQuerySpecification(expression);
+
+        RelationBasedEdgeTFEQuerySpecification querySpecification = querySpecificationFactory.
+                createRelationBasedEdgeTFEQuerySpecification(sourceQS, targetQS, targetFinderExpressionQS);
+        transformationInitializer.getFQNToQuerySpecificationMap().put(querySpecification.getFullyQualifiedName(), querySpecification);
+
+        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, DiagramPackage.eINSTANCE.getDEdge(), querySpecification.getFullyQualifiedName());
+        configuration.getRuleDescriptors().add(ruleDescriptor);
+
+        transformationInitializer.getRuleCandidates().add(new RelationBasedEdgeElementRuleCandidate(ruleDescriptor, PRIORITY_DEDGE, null, mapping, sourceRuleDescriptor, targetRuleDescriptor));
+
+        // TODO: torolni majd ha mar nem kell
+        mappingToRuleDescriptor.put(mapping, ruleDescriptor);
+
+        createContainmentReferenceRule(
+                configuration,
+                querySpecificationFactory.createRelationBasedEdgeContainmentQuerySpecification(ownerQS, querySpecification),
+                parentElementRuleDescriptor,
+                ruleDescriptor,
+                DiagramPackage.eINSTANCE.getDDiagram_OwnedDiagramElements());
+    }
+    
+    private void createRuleDescriptorFromElementBasedEdgeMapping(EdgeMapping mapping, Configuration configuration, ElementRuleDescriptor parentElementRuleDescriptor) {
+        if (mapping.getSourceMapping().size() > 1 || mapping.getTargetMapping().size() > 1) {
+            throw new IllegalStateException("Multiple source and/or target mappings for edges are not yet supported!"); //$NON-NLS-1$
+        }
+        
+        ID++;
+
+        // TODO: SUPPORT MULTIPLE SOURCE AND TARGET MAPPINGS
+        ElementRuleDescriptor sourceRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mapping.getSourceMapping().get(0));
+        ElementRuleDescriptor targetRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mapping.getTargetMapping().get(0));
+
+        String sourceFinderExpression = mapping.getSourceFinderExpression();
+        String targetFinderExpression = mapping.getTargetFinderExpression();
+        String semanticCandidatesExpression = mapping.getSemanticCandidatesExpression();
+
+        SiriusQuerySpecification<? extends PQuery> ownerQS = transformationInitializer.getFQNToQuerySpecificationMap().get(parentElementRuleDescriptor.getPatternFQN());
+
+        SiriusQuerySpecification<? extends PQuery> sourceMappingQS = transformationInitializer.getFQNToQuerySpecificationMap().get(sourceRuleDescriptor.getPatternFQN());
+
+        SiriusQuerySpecification<? extends PQuery> targetMappingQS = transformationInitializer.getFQNToQuerySpecificationMap().get(targetRuleDescriptor.getPatternFQN());
+
+        SiriusQuerySpecification<? extends PQuery> sourceFinderExpressionQS = querySpecificationFactory.createSiriusQuerySpecification(sourceFinderExpression);
+
+        SiriusQuerySpecification<?extends PQuery> targetFinderExpressionQS = querySpecificationFactory.createSiriusQuerySpecification(targetFinderExpression);
+
+        SiriusQuerySpecification<? extends PQuery> semanticCandidatesExpressionQS = querySpecificationFactory.createSiriusQuerySpecification(semanticCandidatesExpression);
+
+
+        /* Creating RuleCandidate for ElementBasedEdge */
+        ElementBasedEdgeSCEQuerySpecification querySpecification = querySpecificationFactory.createElementBasedEdgeSCEQuerySpecification(ownerQS, semanticCandidatesExpressionQS);
+        transformationInitializer.getFQNToQuerySpecificationMap().put(querySpecification.getFullyQualifiedName(), querySpecification);
+
+        ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, DiagramPackage.eINSTANCE.getDEdge(), querySpecification.getFullyQualifiedName());
+        configuration.getRuleDescriptors().add(ruleDescriptor);
+
+        transformationInitializer.getRuleCandidates().add(new ElementBasedEdgeElementRuleCandidate(ruleDescriptor, PRIORITY_DEDGE, null, mapping, sourceRuleDescriptor, targetRuleDescriptor));
+
+        // TODO: torolni majd ha mar nem kell
+        mappingToRuleDescriptor.put(mapping, ruleDescriptor);
+
+        createContainmentReferenceRule(
+                configuration,
+                querySpecificationFactory.createElementBasedEdgeContainmentQuerySpecification(ownerQS, querySpecification),
+                parentElementRuleDescriptor,
+                ruleDescriptor,
+                DiagramPackage.eINSTANCE.getDDiagram_OwnedDiagramElements());
+        /* ******************************************* */
+
+        ReferenceRuleSiriusCompositeQuerySpecification rrcqs = null;
+
+        /* Create RuleDescriptor for 'Source Finder Expression' */
+        ID++;
+        EBEFinderExpressionCompositeQuerySpecification sfeCompositeQuerySpecification = new EBEFinderExpressionCompositeQuerySpecification(diagram, ID, sourceMappingQS, sourceFinderExpressionQS,
+                semanticCandidatesExpressionQS);
+
+        ID++;
+        rrcqs = new ReferenceRuleSiriusCompositeQuerySpecification(diagram, ID, sceQuerySpecification, sfeCompositeQuerySpecification);
+
+        createContainmentReferenceRule(configuration, rrcqs, ruleDescriptor, sourceRuleDescriptor, DiagramPackage.eINSTANCE.getDEdge_SourceNode());
+        /* **************************************************** */
+
+        /* Create RuleDescriptor for 'Target Finder Expression' */
+        ID++;
+        EBEFinderExpressionCompositeQuerySpecification tfeCompositeQuerySpecification = new EBEFinderExpressionCompositeQuerySpecification(diagram, ID, targetMappingQS, targetFinderExpressionQS,
+                semanticCandidatesExpressionQS);
+
+        ID++;
+        rrcqs = new ReferenceRuleSiriusCompositeQuerySpecification(diagram, ID, sceQuerySpecification, tfeCompositeQuerySpecification);
+
+        createContainmentReferenceRule(configuration, rrcqs, ruleDescriptor, targetRuleDescriptor, DiagramPackage.eINSTANCE.getDEdge_TargetNode());
+        /* **************************************************** */
+
     }
     
     // TODO: lehet BorderedNodeMapping is...
@@ -194,75 +382,22 @@ public class DSemanticDiagramIncrementalRefresh {
         // TODO: logger
         System.out.println("Process DiagramElementMapping (" + mapping.getName() + ")");  //$NON-NLS-1$ //$NON-NLS-2$
         
-        ID++;
-        
         if (mapping instanceof NodeMapping || mapping instanceof ContainerMapping) {
-            // Get Container's type
-            EClass containerType = parentElementRuleDescriptor.getElementType();
-            
             String expression = mapping.getSemanticCandidatesExpression();
+
+            SiriusQuerySpecification<? extends PQuery> parentQS = transformationInitializer.getFQNToQuerySpecificationMap().get(parentElementRuleDescriptor.getPatternFQN());
+            SiriusQuerySpecification<? extends PQuery> childQS = querySpecificationFactory.createSiriusQuerySpecification(expression);
             
-            IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> childQuerySpecification =
-                    vqlInterpreter.getQuerySpecification(description, expression, ID);
-            IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> parentQuerySpecification = 
-                    (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) transformationInitializer.getFQNToQuerySpecificationMap().get(parentElementRuleDescriptor.getPatternFQN());
-            AbstractDNodeCompositeQuerySpecification compositeQuerySpecification = new AbstractDNodeCompositeQuerySpecification(diagram, ID, parentQuerySpecification, childQuerySpecification);
-            
-            transformationInitializer.getFQNToQuerySpecificationMap().put(compositeQuerySpecification.getFullyQualifiedName(), compositeQuerySpecification);
+            AbstractDNodeSCEQuerySpecification querySpecification = querySpecificationFactory.createAbstractDNodeSCEQuerySpecification(parentQS, childQS);
+            transformationInitializer.getFQNToQuerySpecificationMap().put(querySpecification.getFullyQualifiedName(), querySpecification);
             
             if (mapping instanceof NodeMapping) {
-                NodeMapping nodeMapping = (NodeMapping) mapping;
-                
-                EClass elementType = null;
-                if (containerType == DiagramPackage.eINSTANCE.getDNodeList() && !isBorderedNodeMapping(nodeMapping)) {
-                    elementType = DiagramPackage.eINSTANCE.getDNodeListElement();
-                } else {
-                    elementType = DiagramPackage.eINSTANCE.getDNode();
-                }
-                
-                ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, elementType, compositeQuerySpecification.getFullyQualifiedName());
-                configuration.getRuleDescriptors().add(ruleDescriptor);
-                
-                transformationInitializer.getRuleCandidates().add(new AbstractDNodeElementRuleCandidate(ruleDescriptor, PRIORITY_ABSTRACT_DNODE, null, nodeMapping));
-                
-                // TODO: torolni majd ha mar nem kell
-                mappingToRuleDescriptor.put(mapping, ruleDescriptor);
-                
-                // Call this function on the child mappings
-                for (DiagramElementMapping childMapping : getMappings(mapping)) {
-                    processDiagramElementMapping(childMapping, configuration, ruleDescriptor);
-                }
-                
-                createReferenceRule(configuration, parentElementRuleDescriptor, ruleDescriptor);
+                createRuleDescriptorFromNodeMapping(querySpecification, (NodeMapping) mapping, configuration, parentElementRuleDescriptor);
             } else if (mapping instanceof ContainerMapping) {
-                ContainerMapping containerMapping = (ContainerMapping) mapping;
-    
-                EClass elementType = null;
-                if (new ContainerMappingQuery(containerMapping).isListContainer()) {
-                    elementType = DiagramPackage.eINSTANCE.getDNodeList();
-                } else {
-                    elementType = DiagramPackage.eINSTANCE.getDNodeContainer();
-                }
-    
-                ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, elementType, compositeQuerySpecification.getFullyQualifiedName());
-                configuration.getRuleDescriptors().add(ruleDescriptor);
-                
-                transformationInitializer.getRuleCandidates().add(new AbstractDNodeElementRuleCandidate(ruleDescriptor, PRIORITY_ABSTRACT_DNODE, null, containerMapping));
-                
-                // TODO: torolni majd ha mar nem kell
-                mappingToRuleDescriptor.put(mapping, ruleDescriptor);
-                
-                // Call this function on the child mappings
-                for (DiagramElementMapping childMapping : getMappings(mapping)) {
-                    processDiagramElementMapping(childMapping, configuration, ruleDescriptor);
-                }            
-                
-                createReferenceRule(configuration, parentElementRuleDescriptor, ruleDescriptor);
+                createRuleDescriptorFromContainerMapping(querySpecification, (ContainerMapping) mapping, configuration, parentElementRuleDescriptor);
             }
         } else if (mapping instanceof EdgeMapping) {
             //throw new IllegalStateException("Edge mappings are not yet supported!"); //$NON-NLS-1$
-            
-            String expression = null;
             
             EdgeMapping edgeMapping = (EdgeMapping) mapping;
             
@@ -282,83 +417,61 @@ public class DSemanticDiagramIncrementalRefresh {
             // Firstly, we need to refresh the EdgeMapping having no other
             // EdgeMapping as source neither as target
             for (final EdgeMapping mp : Iterables.filter(Lists.newArrayList(edgeMapping), edgeMappingWithoutEdgeAsSourceOrTarget)) {
-                ID++;
-                
                 if (mp.getSemanticCandidatesExpression() == null) {
                     // RelationBasedEdge
-                    expression = mp.getTargetFinderExpression();
-                    
-                    if (mp.getSourceMapping().size() > 1 || mp.getTargetMapping().size() > 1) {
-                        throw new IllegalStateException("Multiple source and / or target mappings for edges are not yet supported!"); //$NON-NLS-1$
-                    }
-                    
-                    // TODO: SUPPORT MULTIPLE SOURCE AND TARGET MAPPINGS
-                    ElementRuleDescriptor sourceRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mp.getSourceMapping().get(0));
-                    ElementRuleDescriptor targetRuleDescriptor = (ElementRuleDescriptor) this.mappingToRuleDescriptor.get(mp.getTargetMapping().get(0));
-                    
-                    IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> sourceQS = 
-                            (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) transformationInitializer.getFQNToQuerySpecificationMap().get(sourceRuleDescriptor.getPatternFQN());
-                    IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> targetQS = 
-                            (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) transformationInitializer.getFQNToQuerySpecificationMap().get(targetRuleDescriptor.getPatternFQN());
-                    IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> targetFinderExpressionQS = vqlInterpreter.getQuerySpecification(description, expression, ID);
-                    
-                    RelationBasedEdgeCompositeQuerySpecification rbeCompositeQS = new RelationBasedEdgeCompositeQuerySpecification(diagram, ID, targetFinderExpressionQS, sourceQS, targetQS);
-                    
-                    transformationInitializer.getFQNToQuerySpecificationMap().put(rbeCompositeQS.getFullyQualifiedName(), rbeCompositeQS);
-                    
-                    
-                    ElementRuleDescriptor ruleDescriptor = ConfigurationModelUtil.createElementRuleDescriptor(ID, DiagramPackage.eINSTANCE.getDEdge(), rbeCompositeQS.getFullyQualifiedName());
-                    configuration.getRuleDescriptors().add(ruleDescriptor);
-                    
-                    transformationInitializer.getRuleCandidates().add(new RelationBasedEdgeElementRuleCandidate(ruleDescriptor, PRIORITY_DEDGE, null, mp, sourceRuleDescriptor, targetRuleDescriptor));
-                    
-                    // TODO: torolni majd ha mar nem kell
-                    mappingToRuleDescriptor.put(mp, ruleDescriptor);
-                    
-                    createReferenceRule(configuration, parentElementRuleDescriptor, ruleDescriptor);
+                    createRuleDescriptorFromRelationBasedEdgeMapping(mp, configuration, parentElementRuleDescriptor);
                 } else {
-                    // ElementBasedEdge
+                    
                 }
             }
         }
+
+//                } else {
+//                    // ElementBasedEdge
+//                    
+//                }
+//            }
     }
     
-    // TODO: expression igy nyilvan egyaltalan nem lesz jo!
     // TODO: nem kellene minden egyes mappingbol letrehozott szabalyhoz kulon-kulon egy-egy ilyen szabaly is, lehetne egy darab is OR-al!
-    private void createReferenceRule(Configuration configuration, ElementRuleDescriptor owner, ElementRuleDescriptor target) {
-        ID++;
-        
+    private void createContainementReferenceRuleForAbstractDNode(Configuration configuration, AbstractDNodeContainmentQuerySpecification querySpecification, ElementRuleDescriptor owner, ElementRuleDescriptor target) {
         EReference reference = null;
+        EClass ownerElementType = owner.getElementType();
+        EClass targetElementType = target.getElementType();
+        
+        if (ownerElementType == DiagramPackage.eINSTANCE.getDSemanticDiagram()) {
+            reference = DiagramPackage.eINSTANCE.getDDiagram_OwnedDiagramElements();
+        } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeContainer()) {
+            reference = DiagramPackage.eINSTANCE.getDNodeContainer_OwnedDiagramElements();
 
-        if (owner.getElementType() == DiagramPackage.eINSTANCE.getDSemanticDiagram()) {
-            reference = (EReference) DiagramPackage.eINSTANCE.getDSemanticDiagram().getEStructuralFeature(DiagramPackage.DSEMANTIC_DIAGRAM__OWNED_DIAGRAM_ELEMENTS);
-        } else if (owner.getElementType() == DiagramPackage.eINSTANCE.getDNodeContainer()) {
-            reference = (EReference) DiagramPackage.eINSTANCE.getDNodeContainer().getEStructuralFeature(DiagramPackage.DNODE_CONTAINER__OWNED_DIAGRAM_ELEMENTS);
             // TODO: ez is lehet!
             //DiagramPackage.eINSTANCE.getDNodeContainer().getEStructuralFeature(DiagramPackage.DNODE_CONTAINER__OWNED_BORDERED_NODES);
-        } else if (owner.getElementType() == DiagramPackage.eINSTANCE.getDNodeList()) {
-            reference = (EReference) DiagramPackage.eINSTANCE.getDNodeList().getEStructuralFeature(DiagramPackage.DNODE_LIST__OWNED_ELEMENTS);
+        } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeList()) {
+            reference = DiagramPackage.eINSTANCE.getDNodeList_OwnedElements();
             
             // TODO: ez is lehet!
             //DiagramPackage.eINSTANCE.getDNodeList().getEStructuralFeature(DiagramPackage.DNODE_LIST__OWNED_BORDERED_NODES);
-        } else if (owner.getElementType() == DiagramPackage.eINSTANCE.getDNode()) {
+        } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNode()) {
             reference = (EReference) DiagramPackage.eINSTANCE.getDNode().getEStructuralFeature(DiagramPackage.DNODE__OWNED_BORDERED_NODES);
-        } else if (owner.getElementType() == DiagramPackage.eINSTANCE.getDNodeListElement()) {
+        } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeListElement()) {
             reference = (EReference) DiagramPackage.eINSTANCE.getDNodeListElement().getEStructuralFeature(DiagramPackage.DNODE_LIST_ELEMENT__OWNED_BORDERED_NODES);
-        } else if (owner.getElementType() == DiagramPackage.eINSTANCE.getDEdge()) {
-            // DEdge
-            // TODO!
-            throw new UnsupportedOperationException("Edges are not yet supported!"); //$NON-NLS-1$
+        } else {
+            throw new IllegalStateException("The given 'Owner Element type' is not supported!"); //$NON-NLS-1$
         }
         
-        IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> ownerQS = 
-                (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) transformationInitializer.getFQNToQuerySpecificationMap().get(owner.getPatternFQN());
-        IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> targetQS = 
-                (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) transformationInitializer.getFQNToQuerySpecificationMap().get(target.getPatternFQN());
+        if (targetElementType != DiagramPackage.eINSTANCE.getDNodeContainer()
+                && targetElementType != DiagramPackage.eINSTANCE.getDNodeList()
+                && targetElementType != DiagramPackage.eINSTANCE.getDNode()
+                && targetElementType != DiagramPackage.eINSTANCE.getDNodeListElement()) {
+            throw new IllegalStateException("The given 'Target Element type' is not supported!"); //$NON-NLS-1$
+        }
         
-        // TODO: ezt at kene nevezni, mert azt sugallja, hogy AbstractDnodeokhoz jó csak a QS 
-        AbstractDNodeCompositeQuerySpecification querySpecification = new AbstractDNodeCompositeQuerySpecification(diagram, ID, ownerQS, targetQS);
-
+        createContainmentReferenceRule(configuration, querySpecification, owner, target, reference);
+    }
+    
+    private void createContainmentReferenceRule(Configuration configuration, ReferenceQuerySpecification<? extends ReferencePQuery> querySpecification, ElementRuleDescriptor owner, ElementRuleDescriptor target, EReference reference) {
+        ID++;
+        
         transformationInitializer.getFQNToQuerySpecificationMap().put(querySpecification.getFullyQualifiedName(), querySpecification);
         
         /* Create ReferenceRuleDescriptor */
@@ -368,32 +481,25 @@ public class DSemanticDiagramIncrementalRefresh {
         /* ****************************** */
         
         /* Create PatternParameterMapping instances */
-        PParameter pParameter = null;
         PatternParameterMapping patternParameterMapping = null;
-        
-        for (int i = 0; i < querySpecification.getInternalQueryRepresentation().getParentQS().getParameters().size(); i++) {
-            pParameter = querySpecification.getInternalQueryRepresentation().getParentQS().getParameters().get(i);
-            
-            patternParameterMapping = ConfigurationModelUtil.createPatternParameterMapping(pParameter.getName(), pParameter.getName());
+        for (Entry<String, String> entry : querySpecification.getInternalQueryRepresentation().getOwnerParameterMappings().entrySet()) {
+            patternParameterMapping = ConfigurationModelUtil.createPatternParameterMapping(entry.getKey(), entry.getValue());
             ruleDescriptor.getPatternParameterMappings().add(patternParameterMapping);
             ruleDescriptor.getSourceElementParameterMappings().add(patternParameterMapping);
         }
         
-        for (int i = 0; i < querySpecification.getParameters().size(); i++) {
-            pParameter = querySpecification.getParameters().get(i);
-            
-            patternParameterMapping = ConfigurationModelUtil.createPatternParameterMapping(pParameter.getName(), pParameter.getName());
+        for (Entry<String, String> entry : querySpecification.getInternalQueryRepresentation().getTargetParameterMappings().entrySet()) {
+            patternParameterMapping = ConfigurationModelUtil.createPatternParameterMapping(entry.getKey(), entry.getValue());
             ruleDescriptor.getPatternParameterMappings().add(patternParameterMapping);
             ruleDescriptor.getTargetElementParameterMappings().add(patternParameterMapping);
         }
         /* **************************************** */
         
-        DiagramElementMapping mapping = null;
-        RuleCandidate ruleCandidate = transformationInitializer.getRuleCandidates(target);
+        RuleCandidate<?> ruleCandidate = transformationInitializer.getRuleCandidate(target);
         if (ruleCandidate instanceof AbstractDNodeElementRuleCandidate) {
             transformationInitializer.getRuleCandidates().add(new ContainmentReferenceRuleCandidate(ruleDescriptor, PRIORITY_REFERENCE, null, diagram, transformationInitializer.getRuleProvider(), ((AbstractDNodeElementRuleCandidate) ruleCandidate).getMapping()));
-        } else if (ruleCandidate instanceof DEdgeElementRuleCancicate) {
-            transformationInitializer.getRuleCandidates().add(new ContainmentReferenceRuleCandidate(ruleDescriptor, PRIORITY_REFERENCE, null, diagram, transformationInitializer.getRuleProvider(), ((DEdgeElementRuleCancicate<?, ?>) ruleCandidate).getEdgeMapping()));
+        } else if (ruleCandidate instanceof DEdgeElementRuleCandidate) {
+            transformationInitializer.getRuleCandidates().add(new ContainmentReferenceRuleCandidate(ruleDescriptor, PRIORITY_REFERENCE, null, diagram, transformationInitializer.getRuleProvider(), ((DEdgeElementRuleCandidate<?, ?>) ruleCandidate).getEdgeMapping()));
         }
     }
     

@@ -7,18 +7,16 @@ import org.eclipse.incquery.viewmodel.configuration.ElementRuleDescriptor;
 import org.eclipse.incquery.viewmodel.configuration.RuleDescriptor;
 import org.eclipse.incquery.viewmodel.core.TransformationInitializer;
 import org.eclipse.incquery.viewmodel.core.ViewModelManager;
-import org.eclipse.incquery.viewmodel.traceability.TraceabilityModelManager;
 import org.eclipse.sirius.business.api.session.Session;
 import org.eclipse.sirius.diagram.DSemanticDiagram;
 import org.eclipse.sirius.diagram.business.api.componentization.DiagramMappingsManager;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreter;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RootElementRule;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RuleCandidate;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
 import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
-import org.eclipse.viatra.transformation.runtime.emf.filters.MatchParameterFilter;
+import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -33,7 +31,7 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
 
     private List<RuleCandidate<?>> ruleCandidates;
     
-    private Map<String, IQuerySpecification<? extends ViatraQueryMatcher<? extends IPatternMatch>>> fqnToQuerySpecificationMap;
+    private Map<String, SiriusQuerySpecification<? extends PQuery>> fqnToQuerySpecificationMap;
 
     
     public SiriusNotationModelIncrementalRefreshTransformationInitializer(Session session, DSemanticDiagram diagram, DiagramDescription description,
@@ -99,11 +97,11 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
         this.rootElementRuleDescriptor = rootElementRuleDescriptor;
     }
 
-    public Map<String, IQuerySpecification<? extends ViatraQueryMatcher<? extends IPatternMatch>>> getFQNToQuerySpecificationMap() {
+    public Map<String, SiriusQuerySpecification<? extends PQuery>> getFQNToQuerySpecificationMap() {
         return fqnToQuerySpecificationMap;
     }
 
-    public void setFQNToQuerySpecificationMap(Map<String, IQuerySpecification<? extends ViatraQueryMatcher<? extends IPatternMatch>>> fqnToQuerySpecificationMap) {
+    public void setFQNToQuerySpecificationMap(Map<String, SiriusQuerySpecification<? extends PQuery>> fqnToQuerySpecificationMap) {
         this.fqnToQuerySpecificationMap = fqnToQuerySpecificationMap;
     }
 
@@ -115,7 +113,7 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
         return ruleCandidates;
     }
     
-    public RuleCandidate<?> getRuleCandidates(RuleDescriptor ruleDescriptor) {
+    public RuleCandidate<?> getRuleCandidate(RuleDescriptor ruleDescriptor) {
         for (RuleCandidate<?> ruleCandidate : ruleCandidates) {
             if (ruleCandidate.getRuleDescriptor() == ruleDescriptor) {
                 return ruleCandidate;

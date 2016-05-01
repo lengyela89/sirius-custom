@@ -24,4 +24,5 @@ public abstract class DEdgeElementRuleMatchAppeared<T extends DEdgeElementRule<T
         
         return trace;
     }
+    
 }

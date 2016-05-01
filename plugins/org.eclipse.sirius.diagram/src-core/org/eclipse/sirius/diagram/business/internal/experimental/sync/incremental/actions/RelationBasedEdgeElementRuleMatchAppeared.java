@@ -8,11 +8,11 @@ import org.eclipse.incquery.viewmodel.traceability.EObjectTarget;
 import org.eclipse.incquery.viewmodel.traceability.Trace;
 import org.eclipse.sirius.diagram.DEdge;
 import org.eclipse.sirius.diagram.EdgeTarget;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreter;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.RelationBasedEdgeCompositeQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.RelationBasedEdgeTFEQuerySpecification;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RelationBasedEdgeElementRule;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
-import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
+import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
 
 import com.google.common.collect.Maps;
 
@@ -26,22 +26,24 @@ public class RelationBasedEdgeElementRuleMatchAppeared extends DEdgeElementRuleM
     public Trace doProcess(IPatternMatch match) {
         Trace trace = super.doProcess(match);
         
-        RelationBasedEdgeCompositeQuerySpecification rbeCompositeQS = (RelationBasedEdgeCompositeQuerySpecification) match.specification();
+        RelationBasedEdgeTFEQuerySpecification querySpecification = (RelationBasedEdgeTFEQuerySpecification) match.specification();
         
         TransformationRuleDescriptor sourceRuleDescriptor = rule.getSourceRuleDescriptor();
         TransformationRuleDescriptor targetRuleDescriptor = rule.getTargetRuleDescriptor();
         
-        IQuerySpecification<?> sourceQS = rbeCompositeQS.getInternalQueryRepresentation().getSourceQS();
-        IQuerySpecification<?> targetQS = rbeCompositeQS.getInternalQueryRepresentation().getTargetQS();
-        IQuerySpecification<?> targetFinderQS = rbeCompositeQS.getInternalQueryRepresentation().getTargetFinderExpressionQS();
+        SiriusQuerySpecification<? extends PQuery> sourceQS = querySpecification.getInternalQueryRepresentation().getSourceQS();
+        SiriusQuerySpecification<? extends PQuery> targetQS = querySpecification.getInternalQueryRepresentation().getTargetQS();
 
         Map<String, Object> sourceParametersMap = Maps.newHashMap();
-        Map<String, Object> targetParametersMap = Maps.newHashMap();
+        Map<String, String> sourceQSParameterMappings = querySpecification.getInternalQueryRepresentation().getSourceQSParameterMappings();
         for (String parameterName : sourceQS.getParameterNames()) {
-            sourceParametersMap.put(parameterName, match.get(parameterName));
+            sourceParametersMap.put(parameterName, match.get(sourceQSParameterMappings.get(parameterName)));
         }
+
+        Map<String, Object> targetParametersMap = Maps.newHashMap();
+        Map<String, String> targetQSParameterMappings = querySpecification.getInternalQueryRepresentation().getTargetQSParameterMappings();
         for (String parameterName : targetQS.getParameterNames()) {
-            targetParametersMap.put(parameterName, match.get(parameterName));
+            targetParametersMap.put(parameterName, match.get(targetQSParameterMappings.get(parameterName)));
         }
         
         IPatternMatch sourceMatch = getPatternMatch(sourceQS.getFullyQualifiedName(), sourceParametersMap);
@@ -53,7 +55,7 @@ public class RelationBasedEdgeElementRuleMatchAppeared extends DEdgeElementRuleM
             throw new IllegalStateException("The source or target trace can not be found for the given match!"); //$NON-NLS-1$
         }
         
-        String contextParameterName = VQLInterpreter.getContextParameterName(rbeCompositeQS);
+        String contextParameterName = querySpecification.getContextParameterName();
         EObject sourceSemanticElement = (EObject) match.get(contextParameterName);
         
         EdgeTarget edgeSource = (EdgeTarget) ((EObjectTarget) sourceTrace.getTarget()).getTarget();
