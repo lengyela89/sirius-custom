@@ -7,7 +7,7 @@ import java.util.Set;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.sirius.diagram.DSemanticDiagram;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.helper.vql.VQLInterpreterConstants;
-import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.DSemanticDiagramSiriusQuerySpecification.DSemanticDiagramPQuery;
+import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.DSemanticDiagramQuerySpecification.DSemanticDiagramPQuery;
 import org.eclipse.viatra.query.runtime.api.impl.BaseGeneratedEMFPQuery;
 import org.eclipse.viatra.query.runtime.emf.types.EClassTransitiveInstancesKey;
 import org.eclipse.viatra.query.runtime.matchers.psystem.PBody;
@@ -22,9 +22,9 @@ import org.eclipse.viatra.query.runtime.matchers.tuple.FlatTuple;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class DSemanticDiagramSiriusQuerySpecification extends SiriusQuerySpecification<DSemanticDiagramPQuery> {
+public class DSemanticDiagramQuerySpecification extends SiriusQuerySpecification<DSemanticDiagramPQuery> {
 
-    public DSemanticDiagramSiriusQuerySpecification(DSemanticDiagram diagram, EClass semanticRootType,
+    public DSemanticDiagramQuerySpecification(DSemanticDiagram diagram, EClass semanticRootType,
             String patternFQN) {
         super(new DSemanticDiagramPQuery(diagram, semanticRootType, patternFQN));
     }

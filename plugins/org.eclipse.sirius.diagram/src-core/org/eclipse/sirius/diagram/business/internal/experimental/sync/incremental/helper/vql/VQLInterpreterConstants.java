@@ -13,8 +13,4 @@ public class VQLInterpreterConstants {
 	public static final String ANNOTATION_CONTEXT = "Context"; //$NON-NLS-1$
     
 	public static final String ANNOTATION_PARAMETER_PARAMETER = "parameter"; //$NON-NLS-1$
-    
-	public static final String PATTERN_NAME_PREFIX = "pattern_"; //$NON-NLS-1$
-    
-	public static final String PATTERN_PARAMETER_NAME_PREFIX = "_param_"; //$NON-NLS-1$
 }

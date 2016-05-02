@@ -3,8 +3,6 @@ package org.eclipse.sirius.diagram.business.internal.experimental.sync.increment
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.eclipse.emf.common.util.URI;
@@ -13,7 +11,6 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
-import org.eclipse.sirius.diagram.DSemanticDiagram;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.viatra.query.patternlanguage.emf.eMFPatternLanguage.PatternModel;
@@ -24,10 +21,8 @@ import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
 import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
 import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
-import org.eclipse.viatra.query.runtime.matchers.psystem.annotations.PAnnotation;
 import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 public class VQLInterpreter {
@@ -38,10 +33,6 @@ public class VQLInterpreter {
     
     public static boolean isVQLExpression(String expression) {
         return expression.startsWith(VQLInterpreterConstants.PREFIX);
-    }
-    
-    public static String getUniquePatternName(DSemanticDiagram diagram, long id) {
-        return diagram.getName().hashCode() + VQLInterpreterConstants.PATTERN_NAME_PREFIX + id;
     }
     
     public VQLInterpreter(DiagramDescription diagramDescription) {
@@ -71,10 +62,7 @@ public class VQLInterpreter {
             // Rename patterns and parameters to be unique
             int additionalPattern = 0;
             String patternName = null;
-            Map<String, String> parameterNameMap = null;
             for (Pattern pattern : patternModel.getPatterns()) {
-                parameterNameMap = Maps.newHashMap();
-
                 /* Refresh the name of the pattern to be unique */
                 if (pattern == returnPattern) {
                     patternName = basePatternFQN;
@@ -83,17 +71,13 @@ public class VQLInterpreter {
                 }
                 pattern.setName(patternName);
                 /* ******************************************** */
-                
-                // TODO: remove
-//                rewritePatternParameterNames(pattern, parameterNameMap);
-//                
-//                rewriteAnnotations(pattern, parameterNameMap);
             }
 
+            @SuppressWarnings("unchecked")
             IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> querySpecification =
                     (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>) specificationBuilder.getOrCreateSpecification(returnPattern);
             
-            return new SiriusQuerySpecification(querySpecification.getInternalQueryRepresentation());
+            return new SiriusQuerySpecification<PQuery>(querySpecification.getInternalQueryRepresentation());
         } catch (ViatraQueryException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -102,7 +86,12 @@ public class VQLInterpreter {
         return null;
     }
     
-    // TODO: comment!
+    /**
+     * Parses the given expression and returns the root of the constructed model ({@link PatternModel} instance)
+     * @param diagramDescription The description of the diagram
+     * @param expression The VQL expression to parse
+     * @return
+     */
     private PatternModel getPatternModel(DiagramDescription diagramDescription, String expression) {
         // Remove the prefix from the expression
         expression = expression.replace(VQLInterpreterConstants.PREFIX, ""); //$NON-NLS-1$
@@ -167,37 +156,11 @@ public class VQLInterpreter {
         return null;
     }
     
-    // TODO: remove
-//    /**
-//     * Returns that IQuerySpecification instance from the given list, which will provide the result(s).
-//     * @param querySpecifications The IQuerySpecification instances which were created from the given VQL expression
-//     * @return Returns that IQuerySpecification instance from the given list, which will provide the result(s)
-//     */
-//    private IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> getQuerySpecificationForReturn(List<IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>>> querySpecifications) {
-//        if (querySpecifications == null) {
-//            return null;
-//        }
-//        
-//        if (querySpecifications.size() == 0) {
-//            return null;
-//        } else if (querySpecifications.size() == 1) {
-//            return querySpecifications.get(0);
-//        } else {
-//            PAnnotation returnAnnotation = null;
-//            for (IQuerySpecification<ViatraQueryMatcher<? extends IPatternMatch>> querySpecification : querySpecifications) {
-//                // TODO validation!!!! Mi van, ha elirja a parametert...
-//                returnAnnotation = querySpecification.getFirstAnnotationByName(VQLInterpreterConstants.ANNOTATION_RETURN);
-//                
-//                if (returnAnnotation != null) {
-//                    return querySpecification;
-//                }
-//            }
-//            
-//            return querySpecifications.get(0);
-//        }
-//    }
-    
-    // TODO: comment
+    /**
+     * Searches for the {@link Pattern} from the given {@link PatternModel} with annotation '@Return'
+     * @param patternModel In which the method searches for the {@link Pattern} to return
+     * @return
+     */
     private Pattern getPatternForReturn(PatternModel patternModel) {
         if (patternModel.getPatterns().size() == 0) {
             return null;
@@ -213,95 +176,13 @@ public class VQLInterpreter {
             return patternModel.getPatterns().get(0);
         }
     }
-    
-//    // TODO: comment!
-//    private String getResultParameterName(Pattern pattern) {
-//        Annotation annotation = getAnnotationByName(pattern, VQLInterpreterConstants.ANNOTATION_RETURN);
-//        
-//        if (annotation != null) {
-//            AnnotationParameter annotationParameter = getAnnotationParameterByName(annotation, VQLInterpreterConstants.ANNOTATION_PARAMETER_PARAMETER);
-//            
-//            if (annotationParameter != null) {
-//                return ((StringValue) annotationParameter.getValue()).getValue();
-//            }
-//        }
-//        
-//        return null;
-//    }
-//    
-//    // TODO: comment!
-//    private void rewriteAnnotations(Pattern pattern, Map<String, String> parameterNameMap) {
-//        for (Annotation annotation : pattern.getAnnotations()) {
-//            if (annotation.getName().equals(VQLInterpreterConstants.ANNOTATION_RETURN)
-//                    || annotation.getName().equals(VQLInterpreterConstants.ANNOTATION_CONTEXT)) {
-//                AnnotationParameter annotationParameter = getAnnotationParameterByName(annotation, VQLInterpreterConstants.ANNOTATION_PARAMETER_PARAMETER);
-//                if (annotationParameter == null) {
-//                    throw new IllegalStateException("Not appropriate annotation! Annotation parameter ('"+ VQLInterpreterConstants.ANNOTATION_PARAMETER_PARAMETER +"') can not be found!");  //$NON-NLS-1$//$NON-NLS-2$
-//                }
-//                
-//                rewriteAnnotationParameterValue(annotationParameter, parameterNameMap.get(((StringValue) annotationParameter.getValue()).getValue()));
-//            } else if (annotation.getName().equals(VQLInterpreterConstants.ANNOTATION_BIND)) {
-//                rewriteAnnotationParameterName(
-//                        annotation.getParameters().get(0),
-//                        parameterNameMap.get(annotation.getParameters().get(0).getName()));
-//            }
-//        }
-//    }
-//    
-//    // TODO: comment!
-//    private void rewriteAnnotationParameterValue(AnnotationParameter annotationParameter, String newValue) {
-//        ((StringValue) annotationParameter.getValue()).setValue(newValue);
-//    }
-//    
-//    // TODO: comment
-//    private void rewriteAnnotationParameterName(AnnotationParameter annotationParameter, String newValue) {
-//        annotationParameter.setName(newValue);
-//    }
-//    
-//    // TODO: comment
-//    private void rewritePatternParameterNames(Pattern pattern, Map<String, String> parameterNameMap) {
-//        // Refresh the name of the parameters to be unique
-//        int parameterIndex = -1;
-//        String parameterName = null;
-//        for (Variable parameter : pattern.getParameters()) {
-//            parameterIndex = pattern.getParameters().indexOf(parameter);
-//            
-//            parameterName = pattern.getName() + VQLInterpreterConstants.PATTERN_PARAMETER_NAME_PREFIX + parameterIndex;
-//            
-//            parameterNameMap.put(parameter.getName(), parameterName);
-//            
-//            parameter.setName(parameterName);
-//        }
-//        
-//        // Refresh the name of ParameterRef instances in the pattern bodies to be
-//        //  the same as corresponding parameter's name
-//        for (PatternBody patternBody : pattern.getBodies()) {
-//            for (Variable variable : patternBody.getVariables()) {
-//                if (variable instanceof ParameterRef) {
-//                    variable.setName(((ParameterRef) variable).getReferredParam().getName());
-//                }
-//            }
-//        }
-//
-//    }
-//    
-    // TODO: remove
-//    public String getContainerSemanticElementParameterName(Pattern pattern) {
-//        Annotation annotation = getAnnotationByName(pattern, ANNOTATION_CONTAINER_SEMANTIC_ELEMENT);
-//        
-//        if (annotation != null) {
-//            AnnotationParameter annotationParameter = getAnnotationParameterByName(annotation, ANNOTATION_PARAMETER_PARAMETER);
-//            
-//            if (annotationParameter != null) {
-//                return ((StringValue) annotationParameter.getValue()).getValue();
-//            }
-//        }
-//        
-//        return null;
-//    }
-    
-    
-    // TODO: Comment!
+
+    /**
+     * Returns the {@link Annotation} with the given name from the given {@link Pattern}.
+     * @param pattern The {@link Pattern} in which the method searches for the {@link Annotation} by name
+     * @param annotationName The name of the {@link Annotation} that the method searches for
+     * @return
+     */
     private Annotation getAnnotationByName(Pattern pattern, String annotationName) {
         if (pattern == null || annotationName == null) {
             return null;
@@ -311,82 +192,6 @@ public class VQLInterpreter {
             if (annotation.getName().equals(annotationName)) {
                 return annotation;
             }
-        }
-        
-        return null;
-    }
-    
-//    // TODO: Comment!
-//    private AnnotationParameter getAnnotationParameterByName(Annotation annotation, String annotationParameterName) {
-//        if (annotation == null || annotationParameterName == null) {
-//            return null;
-//        }
-//        
-//        for (AnnotationParameter annotationParameter : annotation.getParameters()) {
-//            if (annotationParameter.getName().equals(annotationParameterName)) {
-//                return annotationParameter;
-//            }
-//        }
-//        
-//        return null;
-//    }
-
-    /**
-     * Returns the bindings belong to this query specification. The key is the parameter's name,
-     *  the value is the name of the bound Sirius' variable.
-     * @param querySpecification
-     * @return
-     */
-    public static Map<String, String> getBindings(IQuerySpecification<?> querySpecification) {
-        if (querySpecification == null) {
-            return null;
-        }
-
-        Map<String, String> result = Maps.newHashMap();
-        
-        for (PAnnotation bindAnnotation : querySpecification.getAnnotationsByName(VQLInterpreterConstants.ANNOTATION_BIND)) {
-            for (Entry<String, Object> entry : bindAnnotation.getAllValues()) {
-                if (entry.getValue() instanceof String) {
-                    result.put(entry.getKey(), (String) entry.getValue());
-                    
-                    break;
-                }
-            }
-        }
-        
-        return result;
-    }    
-    
-    /**
-     * Get the name of that parameter, which will contain the result.
-     * @param querySpecification The IQuerySpecification instance, which were created from the given IQPL expression
-     * @return The name of that parameter, which will contain the result
-     */
-    public static String getResultParameterName(IQuerySpecification<?> querySpecification) {
-        if (querySpecification == null || querySpecification.getParameterNames().isEmpty()) {
-            return null;
-        }
-        
-        PAnnotation returnAnnotation = querySpecification.getFirstAnnotationByName(VQLInterpreterConstants.ANNOTATION_RETURN);
-        
-        if (returnAnnotation != null) {
-            // TODO validation itt is!!!! MI van ha nem Stringet irt be...
-            return (String) returnAnnotation.getFirstValue(VQLInterpreterConstants.ANNOTATION_PARAMETER_PARAMETER);
-        }
-        
-        return querySpecification.getParameterNames().get(0);
-    }
-    
-    public static String getContextParameterName(IQuerySpecification<?> querySpecification) {
-        if (querySpecification == null || querySpecification.getParameterNames().isEmpty()) {
-            return null;
-        }
-        
-        PAnnotation returnAnnotation = querySpecification.getFirstAnnotationByName(VQLInterpreterConstants.ANNOTATION_CONTEXT);
-        
-        if (returnAnnotation != null) {
-            // TODO validation itt is!!!! MI van ha nem Stringet irt be...
-            return (String) returnAnnotation.getFirstValue(VQLInterpreterConstants.ANNOTATION_PARAMETER_PARAMETER);
         }
         
         return null;

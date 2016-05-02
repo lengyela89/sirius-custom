@@ -77,8 +77,6 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
                     ruleCandidate.createRuleCandidate(viewModelManager));
         }
         /* ************************************************************ */
-
-       
     }
     
     public DSemanticDiagram getDiagram() {
@@ -97,12 +95,16 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
         this.rootElementRuleDescriptor = rootElementRuleDescriptor;
     }
 
-    public Map<String, SiriusQuerySpecification<? extends PQuery>> getFQNToQuerySpecificationMap() {
-        return fqnToQuerySpecificationMap;
+    public void addRuleQuerySpecification(SiriusQuerySpecification<? extends PQuery> querySpecification) {
+        this.fqnToQuerySpecificationMap.put(querySpecification.getFullyQualifiedName(), querySpecification);
     }
-
-    public void setFQNToQuerySpecificationMap(Map<String, SiriusQuerySpecification<? extends PQuery>> fqnToQuerySpecificationMap) {
-        this.fqnToQuerySpecificationMap = fqnToQuerySpecificationMap;
+    
+    public SiriusQuerySpecification<? extends PQuery> getRuleQuerySpecification(String fullyQualifiedName) {
+        return this.fqnToQuerySpecificationMap.get(fullyQualifiedName);
+    }
+    
+    public void removeRuleQuerySpecification(SiriusQuerySpecification<? extends PQuery> querySpecification) {
+        this.fqnToQuerySpecificationMap.remove(querySpecification.getFullyQualifiedName());
     }
 
     public SiriusNotationModelIncrementalRefreshRuleProvider getRuleProvider() {

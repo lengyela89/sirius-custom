@@ -25,8 +25,8 @@ public class SiriusQuerySpecificationFactory {
         return interpreter.getQuerySpecification(expression, getNextUniquePatternFQN());
     }
     
-    public DSemanticDiagramSiriusQuerySpecification createDSemanticDiagramSiriusQuerySpecification(EClass semanticRootType) {
-        return new DSemanticDiagramSiriusQuerySpecification(diagram, semanticRootType, getNextUniquePatternFQN());
+    public DSemanticDiagramQuerySpecification createDSemanticDiagramSiriusQuerySpecification(EClass semanticRootType) {
+        return new DSemanticDiagramQuerySpecification(diagram, semanticRootType, getNextUniquePatternFQN());
     }
     
     public AbstractDNodeSCEQuerySpecification createAbstractDNodeSCEQuerySpecification(SiriusQuerySpecification<? extends PQuery> parentQS, SiriusQuerySpecification<? extends PQuery> childQS) {
@@ -56,6 +56,17 @@ public class SiriusQuerySpecificationFactory {
     public ElementBasedEdgeContainmentQuerySpecification createElementBasedEdgeContainmentQuerySpecification(
             SiriusQuerySpecification<? extends PQuery> ownerQS, SiriusQuerySpecification<? extends PQuery> targetQS) {
         return new ElementBasedEdgeContainmentQuerySpecification(getNextUniquePatternFQN(), ownerQS, targetQS);
+    }
+    
+    public ElementBasedEdgeFEQuerySpecification createElementBasedEdgeFEQuerySpecification(
+            SiriusQuerySpecification<? extends PQuery> mappingQS, SiriusQuerySpecification<? extends PQuery> finderExpressionQS,
+            SiriusQuerySpecification<? extends PQuery> semanticCandidatesExpressionQS) {
+        return new ElementBasedEdgeFEQuerySpecification(getNextUniquePatternFQN(), mappingQS, finderExpressionQS, semanticCandidatesExpressionQS);
+    }
+    
+    public ElementBasedEdgeFEReferenceQuerySpecification createElementBasedEdgeFEReferenceQuerySpecification(
+            SiriusQuerySpecification<? extends PQuery> ownerQS, SiriusQuerySpecification<? extends PQuery> targetQS) {
+        return new ElementBasedEdgeFEReferenceQuerySpecification(getNextUniquePatternFQN(), ownerQS, targetQS);
     }
     
     private String getNextUniquePatternFQN() {

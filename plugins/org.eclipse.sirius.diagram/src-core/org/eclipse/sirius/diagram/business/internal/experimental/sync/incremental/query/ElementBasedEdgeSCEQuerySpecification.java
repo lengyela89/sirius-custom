@@ -14,10 +14,9 @@ import com.google.common.collect.Sets;
 public class ElementBasedEdgeSCEQuerySpecification extends SiriusCompositeQuerySpecification<ElementBasedEdgeSCEPQuery> {
 
     
-    @SuppressWarnings("unchecked")
     public ElementBasedEdgeSCEQuerySpecification(String patternFQN, SiriusQuerySpecification<? extends PQuery> parentQS,
             SiriusQuerySpecification<? extends PQuery> childQS) {
-        super(patternFQN, parentQS, childQS);
+        super(new ElementBasedEdgeSCEPQuery(patternFQN, parentQS, childQS));
     }
 
     public static class ElementBasedEdgeSCEPQuery extends SiriusCompositePQuery {
