@@ -48,9 +48,6 @@ public class VQLInterpreter {
      */
     public SiriusQuerySpecification<? extends PQuery> getQuerySpecification(String expression, String basePatternFQN) {
         try {
-            // TODO
-            System.out.println("EXPRESSION:" + expression); //$NON-NLS-1$
-            
             PatternModel patternModel = getPatternModel(diagramDescription, expression);
             
             if (patternModel.getPatterns() == null) {

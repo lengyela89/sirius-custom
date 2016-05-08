@@ -381,6 +381,9 @@ public class DDiagramSynchronizer {
         
         incrementalRefresh.refresh();
         
+        /* Garbage collect orphan computed StyleDescription. */
+        removeOrphanComputedStyleDescriptions();
+        
         RefreshExtensionService.getInstance().postRefresh(this.diagram);
         
         monitor.done();

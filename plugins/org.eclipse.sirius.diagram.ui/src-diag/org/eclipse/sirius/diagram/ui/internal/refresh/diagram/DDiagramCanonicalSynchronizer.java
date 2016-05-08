@@ -55,6 +55,7 @@ import org.eclipse.sirius.diagram.ui.part.SiriusLinkDescriptor;
 import org.eclipse.sirius.diagram.ui.part.SiriusVisualIDRegistry;
 import org.eclipse.sirius.ext.base.Options;
 import org.eclipse.sirius.viewpoint.description.AnnotationEntry;
+import org.eclipse.viatra.sirius.incrementalrefresh.measurement.util.MeasurementUtil;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -103,7 +104,16 @@ public class DDiagramCanonicalSynchronizer extends AbstractCanonicalSynchronizer
      */
     @Override
     public void synchronize() {
+        // TODO
+        int mId = MeasurementUtil.getInstance().measureExecutionTime_Start();
+        
         refreshSemantic();
+
+        // TODO
+        MeasurementUtil.getInstance().measureExecutionTime_Stop(mId, MeasurementUtil.MEASUREMENT_CANONICAL_SYNC);
+        if (gmfDiagram != null) {
+            MeasurementUtil.getInstance().measureModelSize(MeasurementUtil.MEASUREMENT_GMF_NOTATION_MODEL_SIZE, gmfDiagram);
+        }
     }
 
     private void refreshSemantic() {
