@@ -48,6 +48,7 @@ import org.eclipse.sirius.diagram.business.internal.experimental.sync.incrementa
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RootElementRule.RootElementRuleCandidate;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RuleCandidate;
 import org.eclipse.sirius.diagram.description.ContainerMapping;
+import org.eclipse.sirius.diagram.description.DescriptionPackage;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
 import org.eclipse.sirius.diagram.description.DiagramElementMapping;
 import org.eclipse.sirius.diagram.description.EdgeMapping;
@@ -389,7 +390,6 @@ public class DSemanticDiagramIncrementalRefresh {
 
     }
     
-    // TODO: lehet BorderedNodeMapping is...
     private void processDiagramElementMapping(DiagramElementMapping mapping, Configuration configuration, ElementRuleDescriptor parentElementRuleDescriptor) {
         // TODO: logger
         //System.out.println("Process DiagramElementMapping (" + mapping.getName() + ")");  //$NON-NLS-1$ //$NON-NLS-2$
@@ -447,15 +447,17 @@ public class DSemanticDiagramIncrementalRefresh {
         if (ownerElementType == DiagramPackage.eINSTANCE.getDSemanticDiagram()) {
             reference = DiagramPackage.eINSTANCE.getDDiagram_OwnedDiagramElements();
         } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeContainer()) {
-            reference = DiagramPackage.eINSTANCE.getDNodeContainer_OwnedDiagramElements();
-
-            // TODO: ez is lehet!
-            //DiagramPackage.eINSTANCE.getDNodeContainer().getEStructuralFeature(DiagramPackage.DNODE_CONTAINER__OWNED_BORDERED_NODES);
+            if (isBorderedNodeMapping(((AbstractDNodeElementRuleCandidate) transformationInitializer.getRuleCandidate(target)).getMapping())) {
+                reference = (EReference) DiagramPackage.eINSTANCE.getDNodeContainer().getEStructuralFeature(DiagramPackage.DNODE_CONTAINER__OWNED_BORDERED_NODES);
+            } else {
+                reference = DiagramPackage.eINSTANCE.getDNodeContainer_OwnedDiagramElements();
+            }
         } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeList()) {
-            reference = DiagramPackage.eINSTANCE.getDNodeList_OwnedElements();
-            
-            // TODO: ez is lehet!
-            //DiagramPackage.eINSTANCE.getDNodeList().getEStructuralFeature(DiagramPackage.DNODE_LIST__OWNED_BORDERED_NODES);
+            if (isBorderedNodeMapping(((AbstractDNodeElementRuleCandidate) transformationInitializer.getRuleCandidate(target)).getMapping())) {
+                reference = (EReference) DiagramPackage.eINSTANCE.getDNodeList().getEStructuralFeature(DiagramPackage.DNODE_LIST__OWNED_BORDERED_NODES);
+            } else {
+                reference = DiagramPackage.eINSTANCE.getDNodeList_OwnedElements();
+            }
         } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNode()) {
             reference = (EReference) DiagramPackage.eINSTANCE.getDNode().getEStructuralFeature(DiagramPackage.DNODE__OWNED_BORDERED_NODES);
         } else if (ownerElementType == DiagramPackage.eINSTANCE.getDNodeListElement()) {
@@ -544,8 +546,8 @@ public class DSemanticDiagramIncrementalRefresh {
      * @param nodeMapping
      * @return
      */
-    private boolean isBorderedNodeMapping(NodeMapping nodeMapping) {
-        if (nodeMapping.eContainmentFeature() == DiagramPackage.eINSTANCE.getAbstractDNode_OwnedBorderedNodes()) {
+    private boolean isBorderedNodeMapping(DiagramElementMapping nodeMapping) {
+        if (nodeMapping.eContainmentFeature() == DescriptionPackage.eINSTANCE.getAbstractNodeMapping_BorderedNodeMappings()) {
             return true;
         }
         

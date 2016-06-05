@@ -165,7 +165,9 @@ public class DSemanticDiagramIncrementalRefreshFactory {
         window.getPartService().removePartListener(partListener);
     }
     
-    private static void disposeIncrementalRefresh(DRepresentation representation) {
+    public static void disposeIncrementalRefresh(DRepresentation representation) {
+        // TODO
+        //System.out.println("Disposing Incremental refresh..."); //$NON-NLS-1$
         DSemanticDiagramIncrementalRefresh ir = instances.get(representation);
         if (ir != null) {
             ir.dispose();

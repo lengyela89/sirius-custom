@@ -1,8 +1,11 @@
 package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.incquery.viewmodel.configuration.ElementRuleDescriptor;
 import org.eclipse.incquery.viewmodel.configuration.RuleDescriptor;
 import org.eclipse.incquery.viewmodel.core.TransformationInitializer;
@@ -13,6 +16,7 @@ import org.eclipse.sirius.diagram.business.api.componentization.DiagramMappingsM
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RuleCandidate;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
+import org.eclipse.sirius.viewpoint.description.DAnnotation;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
 import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
@@ -83,6 +87,8 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
         
         // TODO
         mId = MeasurementUtil.getInstance().measureExecutionTime_Start();
+
+        // TODO: Should be replaced with smart initializing of the transformation (based on the elements in the diagram and build corresponding traceability model...)
         
         /**
          *  Set the TransactionalEditingDomain for the target model (Notation model).
