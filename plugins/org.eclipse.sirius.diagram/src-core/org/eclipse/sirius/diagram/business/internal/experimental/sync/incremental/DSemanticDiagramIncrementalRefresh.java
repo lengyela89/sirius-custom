@@ -1,7 +1,5 @@
 package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental;
 
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,8 +17,6 @@ import org.eclipse.incquery.viewmodel.configuration.Scheduler;
 import org.eclipse.incquery.viewmodel.configuration.util.ConfigurationModelUtil;
 import org.eclipse.incquery.viewmodel.core.ViewModelManager;
 import org.eclipse.sirius.business.api.session.Session;
-import org.eclipse.sirius.business.api.session.SessionManager;
-import org.eclipse.sirius.business.api.session.SessionManagerListener;
 import org.eclipse.sirius.common.tools.api.interpreter.IInterpreter;
 import org.eclipse.sirius.diagram.DSemanticDiagram;
 import org.eclipse.sirius.diagram.DiagramPackage;
@@ -54,18 +50,8 @@ import org.eclipse.sirius.diagram.description.DiagramElementMapping;
 import org.eclipse.sirius.diagram.description.EdgeMapping;
 import org.eclipse.sirius.diagram.description.NodeMapping;
 import org.eclipse.sirius.ecore.extender.business.api.accessor.ModelAccessor;
-import org.eclipse.sirius.ui.business.api.dialect.DialectEditor;
-import org.eclipse.sirius.ui.business.api.session.IEditingSession;
-import org.eclipse.sirius.ui.business.api.session.SessionUIManager;
-import org.eclipse.sirius.viewpoint.description.Viewpoint;
-import org.eclipse.ui.IPartListener2;
-import org.eclipse.ui.IWindowListener;
-import org.eclipse.ui.IWorkbenchPartReference;
-import org.eclipse.ui.IWorkbenchWindow;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.viatra.query.runtime.exception.ViatraQueryException;
 import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
-import org.eclipse.viatra.sirius.incrementalrefresh.measurement.util.MeasurementUtil;
 import org.eclipse.viatra.transformation.runtime.emf.transformation.eventdriven.InconsistentEventSemanticsException;
 
 import com.google.common.base.Predicate;
@@ -127,9 +113,6 @@ public class DSemanticDiagramIncrementalRefresh {
                 throw new IllegalArgumentException("The 'description' parameter can not be null!"); //$NON-NLS-1$
             }
             
-            // TODO
-            int mId = MeasurementUtil.getInstance().measureExecutionTime_Start();
-            
             this.session = session;
             this.description = description;
             this.diagramMappingsManager = diagramMappingsManager;
@@ -148,9 +131,6 @@ public class DSemanticDiagramIncrementalRefresh {
             
             viewModelManager.initialize();
             
-            // TODO
-            MeasurementUtil.getInstance().measureExecutionTime_Stop(mId, MeasurementUtil.MEASUREMENT_INCREMENTAL_REFRESH_INIT);
-            
             initialized = true;
         }
     }
@@ -164,10 +144,6 @@ public class DSemanticDiagramIncrementalRefresh {
     public void refresh() {
         if (viewModelManager != null) {
             viewModelManager.getExecutionSchema().startUnscheduledExecution();
-
-            // TODO
-//            MeasurementUtil.getInstance().measureModelSize(MeasurementUtil.MEASUREMENT_TRACEABILITY_MODEL_SIZE,
-//                    viewModelManager.getTraceabilityModelManager().getTraceability());
         }
     }
     

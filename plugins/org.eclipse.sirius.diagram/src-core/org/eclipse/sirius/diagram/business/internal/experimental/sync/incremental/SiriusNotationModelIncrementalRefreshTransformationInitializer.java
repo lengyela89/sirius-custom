@@ -1,11 +1,8 @@
 package org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.emf.ecore.EObject;
-import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.incquery.viewmodel.configuration.ElementRuleDescriptor;
 import org.eclipse.incquery.viewmodel.configuration.RuleDescriptor;
 import org.eclipse.incquery.viewmodel.core.TransformationInitializer;
@@ -16,12 +13,10 @@ import org.eclipse.sirius.diagram.business.api.componentization.DiagramMappingsM
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.query.SiriusQuerySpecification;
 import org.eclipse.sirius.diagram.business.internal.experimental.sync.incremental.rules.RuleCandidate;
 import org.eclipse.sirius.diagram.description.DiagramDescription;
-import org.eclipse.sirius.viewpoint.description.DAnnotation;
 import org.eclipse.viatra.query.runtime.api.IPatternMatch;
 import org.eclipse.viatra.query.runtime.api.IQuerySpecification;
 import org.eclipse.viatra.query.runtime.api.ViatraQueryMatcher;
 import org.eclipse.viatra.query.runtime.matchers.psystem.queries.PQuery;
-import org.eclipse.viatra.sirius.incrementalrefresh.measurement.util.MeasurementUtil;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -62,21 +57,8 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
             throw new IllegalStateException("One of the required parameters is null!"); //$NON-NLS-1$
         }
         
-        // TODO
-        MeasurementUtil.getInstance().measureExecutionTime_Stop(mId, MeasurementUtil.MEASUREMENT_VMM_INIT);
-        
-        // TODO
-        MeasurementUtil.getInstance().measureModelSize(MeasurementUtil.MEASUREMENT_SOURCE_MODEL_SIZE, diagram.getTarget());
-        
-        // TODO
-        mId = MeasurementUtil.getInstance().measureExecutionTime_Start();
-        
         /* Fire activations */
         viewModelManager.getExecutionSchema().startUnscheduledExecution();
-        
-        // TODO
-        MeasurementUtil.getInstance().measureExecutionTime_Stop(mId, MeasurementUtil.MEASUREMENT_VMM_FIRST_EXEC);
-        MeasurementUtil.getInstance().measureModelSize(MeasurementUtil.MEASUREMENT_TRACEABILITY_MODEL_SIZE, viewModelManager.getTraceabilityModelManager().getTraceability());
     }
 
     @Override
@@ -85,9 +67,6 @@ public class SiriusNotationModelIncrementalRefreshTransformationInitializer impl
             throw new IllegalStateException("One of the required parameters is null!"); //$NON-NLS-1$
         }
         
-        // TODO
-        mId = MeasurementUtil.getInstance().measureExecutionTime_Start();
-
         // TODO: Should be replaced with smart initializing of the transformation (based on the elements in the diagram and build corresponding traceability model...)
         
         /**
