@@ -25,7 +25,9 @@ import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.transaction.RunnableWithResult;
+import org.eclipse.emf.transaction.RecordingCommand;
+import org.eclipse.emf.transaction.RollbackException;
+import org.eclipse.emf.transaction.TransactionalCommandStack;
 import org.eclipse.emf.transaction.TransactionalEditingDomain;
 import org.eclipse.emf.workspace.util.WorkspaceSynchronizer;
 import org.eclipse.sirius.business.api.query.ResourceQuery;
@@ -189,10 +191,52 @@ public class SessionResourcesSynchronizer implements ResourceSyncClient {
             reloadingAnalysisCmd = new AnalysisResourceReloadedCommand(session, ted, resource);
         }
         List<Resource> resourcesBeforeReload = Lists.newArrayList(ted.getResourceSet().getResources());
-        /* execute the reload operation as a read-only transaction */
-        RunnableWithResult<?> reload = new RunnableWithResult.Impl<Object>() {
+        
+        /*
+         * TODO
+         * Modified, because the reload operation must be executed in write transaction!
+         */
+//        /* execute the reload operation as a read-only transaction */
+//        RunnableWithResult<?> reload = new RunnableWithResult.Impl<Object>() {
+//            @Override
+//            public void run() {
+//                session.disableCrossReferencerResolve(resource);
+//                resource.unload();
+//                session.enableCrossReferencerResolve(resource);
+//                try {
+//                    resource.load(Collections.EMPTY_MAP);
+//                    EcoreUtil.resolveAll(resource);
+//                    session.getSemanticCrossReferencer().resolveProxyCrossReferences(resource);
+//                } catch (IOException e) {
+//                    setResult(e);
+//                }
+//            }
+//        };
+//        try {
+//            ted.runExclusive(reload);
+//            if (reload.getResult() != null) {
+//                throw (IOException) reload.getResult();
+//            } else if (!reload.getStatus().isOK()) {
+//                SiriusPlugin.getDefault().error(Messages.SessionResourcesSynchronizer_reloadOperationFailErrorMsg, null);
+//            } else {
+//                if (representationsResource) {
+//                    ted.getCommandStack().execute(reloadingAnalysisCmd);
+//                    if (resource.getURI().equals(session.getSessionResource().getURI())) {
+//                        session.sessionResourceReloaded(resource);
+//                    }
+//                }
+//                // Analyze the unknown resources to detect new semantic or
+//                // session resources.
+//                session.discoverAutomaticallyLoadedResources(resourcesBeforeReload);
+//                session.notifyListeners(SessionListener.REPLACED);
+//            }
+//        } catch (InterruptedException e) {
+//            // do nothing
+//        }
+        
+        RecordingCommand rc = new RecordingCommand(ted) {
             @Override
-            public void run() {
+            protected void doExecute() {
                 session.disableCrossReferencerResolve(resource);
                 resource.unload();
                 session.enableCrossReferencerResolve(resource);
@@ -201,30 +245,37 @@ public class SessionResourcesSynchronizer implements ResourceSyncClient {
                     EcoreUtil.resolveAll(resource);
                     session.getSemanticCrossReferencer().resolveProxyCrossReferences(resource);
                 } catch (IOException e) {
-                    setResult(e);
+                    throw new RuntimeException(e);
                 }
             }
         };
+
+        TransactionalCommandStack tcs = (TransactionalCommandStack) ted.getCommandStack();
         try {
-            ted.runExclusive(reload);
-            if (reload.getResult() != null) {
-                throw (IOException) reload.getResult();
-            } else if (!reload.getStatus().isOK()) {
-                SiriusPlugin.getDefault().error(Messages.SessionResourcesSynchronizer_reloadOperationFailErrorMsg, null);
-            } else {
-                if (representationsResource) {
-                    ted.getCommandStack().execute(reloadingAnalysisCmd);
-                    if (resource.getURI().equals(session.getSessionResource().getURI())) {
-                        session.sessionResourceReloaded(resource);
-                    }
+            tcs.execute(rc, null);
+
+            if (representationsResource) {
+                ted.getCommandStack().execute(reloadingAnalysisCmd);
+
+                if (resource.getURI().equals(session.getSessionResource().getURI())) {
+                    session.sessionResourceReloaded(resource);
                 }
-                // Analyze the unknown resources to detect new semantic or
-                // session resources.
-                session.discoverAutomaticallyLoadedResources(resourcesBeforeReload);
-                session.notifyListeners(SessionListener.REPLACED);
             }
+
+            // Analyze the unknown resources to detect new semantic or
+            // session resources.
+            session.discoverAutomaticallyLoadedResources(resourcesBeforeReload);
+            session.notifyListeners(SessionListener.REPLACED);
         } catch (InterruptedException e) {
             // do nothing
+        } catch (RollbackException e) {
+            if (e.getStatus() != null) {
+                if (e.getStatus().getException() != null && e.getStatus().getException() instanceof IOException) {
+                    throw (IOException) e.getStatus().getException();
+                } else if (!e.getStatus().isOK()) {
+                    SiriusPlugin.getDefault().error(Messages.SessionResourcesSynchronizer_reloadOperationFailErrorMsg, null);
+                }
+            }
         }
     }
 

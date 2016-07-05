@@ -623,6 +623,10 @@ public final class GMFHelper {
     }
 
     /**
+     * TODO: Replaced based on this bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=485426
+     *  Remove after 4.1 release!
+     */
+    /**
      * Return an option with the editPart corresponding to the <code>view</code>
      * in the current diagram or an empty Option if there is no corresponding
      * editPart.
@@ -632,27 +636,27 @@ public final class GMFHelper {
      * @return The optional corresponding edit part.
      */
     public static Option<GraphicalEditPart> getGraphicalEditPart(View view) {
-        Option<GraphicalEditPart> result = Options.newNone();
-        DiagramEditor diagramEditor = null;
         if (view != null) {
-            final IEditorPart editor = EclipseUIUtil.getActiveEditor();
-            Diagram diagram = view.getDiagram();
-            if (editor instanceof DiagramEditor && ((DiagramEditor) editor).getDiagram() == diagram) {
-                diagramEditor = (DiagramEditor) editor;
-            } else if (diagram.getElement() instanceof DDiagram) {
-                DDiagram diag = (DDiagram) diagram.getElement();
+            Diagram gmfDiagram = view.getDiagram();
+            // Try the active editor first (most likely case in practice)
+            IEditorPart editor = EclipseUIUtil.getActiveEditor();
+            if (isEditorFor(editor, gmfDiagram)) {
+                return getGraphicalEditPart(view, (DiagramEditor) editor);
+            } else if (gmfDiagram.getElement() instanceof DDiagram) {
+                // Otherwise check all active Sirius editors
                 for (IEditingSession uiSession : SessionUIManager.INSTANCE.getUISessions()) {
-                    DialectEditor dialectEditor = uiSession.getEditor(diag);
-                    if (dialectEditor instanceof DiagramEditor && ((DiagramEditor) editor).getDiagram() != diagram) {
-                        diagramEditor = (DiagramEditor) dialectEditor;
+                    DialectEditor dialectEditor = uiSession.getEditor((DDiagram) gmfDiagram.getElement());
+                    if (isEditorFor(dialectEditor, gmfDiagram)) {
+                        return getGraphicalEditPart(view, (DiagramEditor) dialectEditor);
                     }
                 }
             }
         }
-        if (diagramEditor != null) {
-            return getGraphicalEditPart(view, diagramEditor);
-        }
-        return result;
+        return Options.<GraphicalEditPart>newNone();
+    }
+    
+    private static boolean isEditorFor(IEditorPart editor, Diagram diagram) {
+        return editor instanceof DiagramEditor && ((DiagramEditor) editor).getDiagram() == diagram;
     }
 
     /**
