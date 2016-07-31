@@ -17,6 +17,7 @@ import java.util.Map;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.transaction.RecordingCommand;
 import org.eclipse.emf.transaction.TransactionalEditingDomain;
 import org.eclipse.emf.transaction.util.TransactionUtil;
 import org.eclipse.emf.validation.service.IBatchValidator;
@@ -30,6 +31,7 @@ import org.eclipse.sirius.diagram.ui.internal.edit.parts.DDiagramEditPart;
 import org.eclipse.sirius.diagram.ui.part.SiriusVisualIDRegistry;
 import org.eclipse.sirius.diagram.ui.part.ValidateAction;
 import org.eclipse.sirius.diagram.ui.provider.Messages;
+import org.eclipse.sirius.diagram.ui.tools.internal.edit.command.RecordingCommandsExecutor;
 
 /**
  * @was-generated
@@ -64,7 +66,7 @@ public class SiriusValidationProvider extends AbstractContributionItemProvider {
      */
     public static void runWithConstraints(View view, Runnable op) {
         final Runnable fop = op;
-        Runnable task = new Runnable() {
+        final Runnable task = new Runnable() {
 
             @Override
             public void run() {
@@ -79,7 +81,18 @@ public class SiriusValidationProvider extends AbstractContributionItemProvider {
         TransactionalEditingDomain txDomain = TransactionUtil.getEditingDomain(view);
         if (txDomain != null) {
             try {
-                txDomain.runExclusive(task);
+                txDomain.getCommandStack().execute(new RecordingCommand(txDomain) {
+                    
+                    @Override
+                    protected void doExecute() {
+                        task.run();
+                    }
+                });
+                
+                /**
+                 * Original implementation
+                 */
+                // txDomain.runExclusive(task);
             } catch (Exception e) {
                 DiagramPlugin.getDefault().logError(Messages.SiriusValidationProvider_validationFailed, e); 
             }
